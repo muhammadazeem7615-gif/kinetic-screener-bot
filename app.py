@@ -12,6 +12,12 @@ TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', 'YOUR_TELEGRAM_CHAT_ID')
 exchange = ccxt.binance({
     'options': {'defaultType': 'future'},
     'enableRateLimit': True,
+    'urls': {
+        'api': {
+            'public': 'https://data-api.binance.vision/api/v3',
+            'fapi': 'https://fapi.binance.com/fapi/v1',
+        }
+    }
 })
 
 def send_telegram_alert(message):
