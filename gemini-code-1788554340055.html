@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Crypto Futures Screener - Adaptive Kinetic Ribbon</title>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0a0e27;
+            color: #e0e0e0;
+        }
+        
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            margin-bottom: 25px;
+            border-bottom: 2px solid #1a1f3a;
+            padding-bottom: 20px;
+        }
+        
+        .header h1 {
+            font-size: 28px;
+            margin-bottom: 10px;
+            color: #00ffaa;
+        }
+        
+        .header-info {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 16px;
+            background: #1a1f3a;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #00ffaa;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-dot.idle {
+            background: #ffa500;
+            animation: none;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-bottom: 20px;
+            background: #0f1329;
+            padding: 16px;
+            border-radius: 8px;
+            border: 1px solid #1a1f3a;
+        }
+        
+        .filter-row {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        
+        .filter-group {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .filter-group label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        select {
+            padding: 6px 12px;
+            background: #1a1f3a;
+            color: #00ffaa;
+            border: 1px solid #00ffaa;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            outline: none;
+            cursor: pointer;
+        }
+        
+        button {
+            padding: 6px 14px;
+            background: #1a1f3a;
+            color: #00ffaa;
+            border: 1px solid #00ffaa;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            background: #00ffaa;
+            color: #0a0e27;
+        }
+        
+        button.active {
+            background: #00ffaa;
+            color: #0a0e27;
+        }
+        
+        .signals-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #0f1329;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .signals-table thead {
+            background: #1a1f3a;
+            border-bottom: 2px solid #2a2f4a;
+        }
+        
+        .signals-table th {
+            padding: 14px 16px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            color: #888;
+            border-right: 1px solid #2a2f4a;
+        }
+        
+        .signals-table th:last-child {
+            border-right: none;
+        }
+        
+        .signals-table tbody tr {
+            border-bottom: 1px solid #1a1f3a;
+            transition: background 0.2s;
+        }
+        
+        .signals-table tbody tr:hover {
+            background: #1a1f3a;
+        }
+        
+        .signals-table td {
+            padding: 12px 16px;
+            font-size: 13px;
+            border-right: 1px solid #1a1f3a;
+        }
+        
+        .signals-table td:last-child {
+            border-right: none;
+        }
+        
+        .coin-name {
+            font-weight: 600;
+            color: #fff;
+            min-width: 80px;
+        }
+        
+        .signal-badge {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            display: inline-block;
+            min-width: 140px;
+            text-align: center;
+        }
+        
+        .bull-accel {
+            background: rgba(0, 255, 170, 0.2);
+            color: #00ffaa;
+            border: 1px solid #00ffaa;
+        }
+        
+        .bull-decel {
+            background: rgba(0, 100, 64, 0.2);
+            color: #00dd88;
+            border: 1px solid #00dd88;
+        }
+        
+        .bear-accel {
+            background: rgba(255, 0, 0, 0.2);
+            color: #ff4444;
+            border: 1px solid #ff4444;
+        }
+        
+        .bear-decel {
+            background: rgba(139, 0, 0, 0.2);
+            color: #dd4444;
+            border: 1px solid #dd4444;
+        }
+        
+        .crossover-bull {
+            background: rgba(0, 200, 150, 0.2);
+            color: #00ffaa;
+            border: 1px solid #00ffaa;
+        }
+        
+        .crossover-bear {
+            background: rgba(255, 50, 50, 0.2);
+            color: #ff5555;
+            border: 1px solid #ff5555;
+        }
+        
+        .timeframe-badge {
+            background: #2a2f4a;
+            color: #00ffaa;
+            padding: 4px 10px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: 600;
+            display: inline-block;
+            min-width: 50px;
+            text-align: center;
+        }
+        
+        .price {
+            color: #00ffaa;
+            font-weight: 500;
+        }
+
+        .vol {
+            color: #888;
+            font-size: 12px;
+        }
+        
+        .timestamp {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            color: #666;
+        }
+        
+        .error-message {
+            background: rgba(255, 0, 0, 0.1);
+            border: 1px solid #ff4444;
+            color: #ff8888;
+            padding: 16px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            background: #1a1f3a;
+            padding: 16px;
+            border-radius: 6px;
+            border-left: 3px solid #00ffaa;
+        }
+        
+        .stat-label {
+            font-size: 12px;
+            color: #888;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        
+        .stat-value {
+            font-size: 24px;
+            font-weight: 600;
+            color: #00ffaa;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback } = React;
+
+        function CryptoScreener() {
+            const [signals, setSignals] = useState([]);
+            const [loading, setLoading] = useState(false);
+            const [error, setError] = useState('');
+            const [lastUpdate, setLastUpdate] = useState(null);
+            
+            // Filter States
+            const [filterTimeframe, setFilterTimeframe] = useState('all');
+            const [filterSignalType, setFilterSignalType] = useState('all');
+            const [minVolume, setMinVolume] = useState(500000); // Default $500k USDT
+
+            const INDICATOR_PARAMS = {
+                length: 20,
+                mult: 1.5,
+                ribbonFastLength: 3,
+                ribbonSlowLength: 8
+            };
+
+            const TIMEFRAMES = [
+                { name: '15m', minutes: 15 },
+                { name: '2h', minutes: 120 },
+                { name: '4h', minutes: 240 },
+                { name: '1d', minutes: 1440 }
+            ];
+
+            const fetchBinance = async (url) => {
+                try {
+                    const res = await fetch(url);
+                    if (res.ok) return await res.json();
+                    throw new Error('Direct fetch failed');
+                } catch (e) {
+                    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(url)}`;
+                    const resProxy = await fetch(proxyUrl);
+                    return await resProxy.json();
+                }
+            };
+
+            const calculateIndicatorSeries = (closes) => {
+                const minReq = INDICATOR_PARAMS.length + INDICATOR_PARAMS.ribbonSlowLength + 5;
+                if (closes.length < minReq) return null;
+
+                const length = INDICATOR_PARAMS.length;
+                const kineticSeries = [];
+
+                for (let i = length; i < closes.length; i++) {
+                    const velocity = closes[i] - closes[i - length];
+                    let sumSqDiff = 0;
+                    for (let j = i - length + 1; j <= i; j++) {
+                        const change = closes[j] - closes[j - 1];
+                        sumSqDiff += change * change;
+                    }
+                    const volatility = Math.sqrt(sumSqDiff / length) * INDICATOR_PARAMS.mult;
+                    const adaptiveAlpha = Math.abs(velocity) / (Math.abs(velocity) + volatility + 0.0001);
+
+                    let prevKinetic = kineticSeries.length > 0 ? kineticSeries[kineticSeries.length - 1] : closes[i - length];
+                    let kineticLine = prevKinetic + adaptiveAlpha * (closes[i] - prevKinetic);
+                    kineticSeries.push(kineticLine);
+                }
+
+                const getRibbonStateAt = (idx) => {
+                    if (idx < INDICATOR_PARAMS.ribbonSlowLength - 1) return null;
+                    const fastSlice = kineticSeries.slice(idx - INDICATOR_PARAMS.ribbonFastLength + 1, idx + 1);
+                    const slowSlice = kineticSeries.slice(idx - INDICATOR_PARAMS.ribbonSlowLength + 1, idx + 1);
+
+                    const ribbonFast = fastSlice.reduce((a, b) => a + b, 0) / INDICATOR_PARAMS.ribbonFastLength;
+                    const ribbonSlow = slowSlice.reduce((a, b) => a + b, 0) / INDICATOR_PARAMS.ribbonSlowLength;
+
+                    return { ribbonFast, ribbonSlow };
+                };
+
+                const kLen = kineticSeries.length;
+                const current = getRibbonStateAt(kLen - 1);
+                const previous = getRibbonStateAt(kLen - 2);
+                const previousPrev = getRibbonStateAt(kLen - 3);
+
+                if (!current || !previous || !previousPrev) return null;
+
+                return { current, previous, previousPrev };
+            };
+
+            const detectSignals = (closesHistory) => {
+                const states = calculateIndicatorSeries(closesHistory);
+                if (!states) return null;
+
+                const { current, previous, previousPrev } = states;
+
+                const trendUp = current.ribbonFast > current.ribbonSlow;
+                const trendUpPrev = previous.ribbonFast > previous.ribbonSlow;
+
+                const accelerating = current.ribbonFast > previous.ribbonFast;
+                const acceleratingPrev = previous.ribbonFast > previousPrev.ribbonFast;
+
+                const bullishCrossover = !trendUpPrev && trendUp;
+                const bearishCrossover = trendUpPrev && !trendUp;
+
+                const bullAccel = trendUp && accelerating && !(trendUpPrev && acceleratingPrev);
+                const bullDecel = trendUp && !accelerating && !(trendUpPrev && !acceleratingPrev);
+                const bearAccel = !trendUp && !accelerating && !(trendUpPrev && !acceleratingPrev);
+                const bearDecel = !trendUp && accelerating && !(trendUpPrev && acceleratingPrev);
+
+                const detected = [];
+                if (bullishCrossover) detected.push('Bullish Crossover');
+                if (bearishCrossover) detected.push('Bearish Crossover');
+                if (bullAccel) detected.push('Bullish Acceleration');
+                if (bullDecel) detected.push('Bullish Deceleration');
+                if (bearAccel) detected.push('Bearish Acceleration');
+                if (bearDecel) detected.push('Bearish Deceleration');
+
+                return detected.length > 0 ? detected : null;
+            };
+
+            const fetchAndScan = useCallback(async () => {
+                setLoading(true);
+                setError('');
+                const newSignals = [];
+
+                try {
+                    const ticker24h = await fetchBinance('https://fapi.binance.com/fapi/v1/ticker/24hr');
+                    const volumeMap = {};
+                    ticker24h.forEach(t => {
+                        volumeMap[t.symbol] = parseFloat(t.quoteVolume);
+                    });
+
+                    const exchangeInfo = await fetchBinance('https://fapi.binance.com/fapi/v1/exchangeInfo');
+                    const symbols = exchangeInfo.symbols
+                        .filter(s => s.status === 'TRADING' && s.quoteAsset === 'USDT')
+                        .map(s => s.symbol)
+                        .slice(0, 60);
+
+                    const batchSize = 5;
+                    for (let i = 0; i < symbols.length; i += batchSize) {
+                        const batch = symbols.slice(i, i + batchSize);
+                        await Promise.all(batch.map(async (symbol) => {
+                            const volume24h = volumeMap[symbol] || 0;
+
+                            for (const tf of TIMEFRAMES) {
+                                try {
+                                    const klines = await fetchBinance(
+                                        `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${tf.name}&limit=60`
+                                    );
+
+                                    if (!Array.isArray(klines) || klines.length < 40) continue;
+
+                                    const closes = klines.map(k => parseFloat(k[4]));
+                                    const detectedSignals = detectSignals(closes);
+
+                                    if (detectedSignals) {
+                                        detectedSignals.forEach(signal => {
+                                            newSignals.push({
+                                                id: `${symbol}-${tf.name}-${signal}`,
+                                                symbol: symbol.replace('USDT', ''),
+                                                timeframe: tf.name,
+                                                signal,
+                                                price: closes[closes.length - 1],
+                                                volume24h,
+                                                timestamp: new Date()
+                                            });
+                                        });
+                                    }
+                                } catch (e) {
+                                    console.error(`Error scanning ${symbol} [${tf.name}]:`, e);
+                                }
+                            }
+                        }));
+                    }
+
+                    newSignals.sort((a, b) => b.timestamp - a.timestamp);
+                    setSignals(newSignals);
+                    setLastUpdate(new Date());
+                } catch (err) {
+                    setError(`Scan error: ${err.message}`);
+                }
+                setLoading(false);
+            }, []);
+
+            useEffect(() => {
+                fetchAndScan();
+                const interval = setInterval(fetchAndScan, 5 * 60 * 1000);
+                return () => clearInterval(interval);
+            }, [fetchAndScan]);
+
+            const filteredSignals = signals.filter(s => {
+                const timeframeMatch = filterTimeframe === 'all' || s.timeframe === filterTimeframe;
+                const volumeMatch = s.volume24h >= minVolume;
+
+                let signalMatch = true;
+                if (filterSignalType === 'crossovers') {
+                    signalMatch = s.signal.includes('Crossover');
+                } else if (filterSignalType === 'crossover-bull') {
+                    signalMatch = s.signal === 'Bullish Crossover';
+                } else if (filterSignalType === 'crossover-bear') {
+                    signalMatch = s.signal === 'Bearish Crossover';
+                } else if (filterSignalType === 'accelerations') {
+                    signalMatch = s.signal.includes('Acceleration');
+                } else if (filterSignalType === 'accel-bull') {
+                    signalMatch = s.signal === 'Bullish Acceleration';
+                } else if (filterSignalType === 'accel-bear') {
+                    signalMatch = s.signal === 'Bearish Acceleration';
+                }
+
+                return timeframeMatch && volumeMatch && signalMatch;
+            });
+
+            const getSignalClass = (signal) => {
+                if (signal.includes('Bullish Crossover')) return 'crossover-bull';
+                if (signal.includes('Bearish Crossover')) return 'crossover-bear';
+                if (signal.includes('Bullish Acceleration')) return 'bull-accel';
+                if (signal.includes('Bullish Deceleration')) return 'bull-decel';
+                if (signal.includes('Bearish Acceleration')) return 'bear-accel';
+                if (signal.includes('Bearish Deceleration')) return 'bear-decel';
+                return '';
+            };
+
+            const formatVolume = (vol) => {
+                if (vol >= 1e9) return `$${(vol / 1e9).toFixed(2)}B`;
+                if (vol >= 1e6) return `$${(vol / 1e6).toFixed(2)}M`;
+                if (vol >= 1e3) return `$${(vol / 1e3).toFixed(0)}K`;
+                return `$${vol.toFixed(0)}`;
+            };
+
+            const formatTime = (date) => {
+                return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            };
+
+            return (
+                <div className="container">
+                    <div className="header">
+                        <h1>🚀 Crypto Futures Screener</h1>
+                        <div className="header-info">
+                            <div className="status">
+                                <div className={`status-dot ${loading ? '' : 'idle'}`}></div>
+                                <span>{loading ? 'Scanning Market...' : 'Ready'}</span>
+                            </div>
+                            {lastUpdate && (
+                                <div className="status">
+                                    Last update: {formatTime(lastUpdate)}
+                                </div>
+                            )}
+                            <button onClick={fetchAndScan} disabled={loading}>
+                                {loading ? 'Scanning...' : 'Scan Now'}
+                            </button>
+                        </div>
+                    </div>
+
+                    {error && <div className="error-message">{error}</div>}
+
+                    <div className="stats">
+                        <div className="stat-card">
+                            <div className="stat-label">Total Signals</div>
+                            <div className="stat-value">{filteredSignals.length}</div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-label">Bullish</div>
+                            <div className="stat-value" style={{color: '#00ffaa'}}>
+                                {filteredSignals.filter(s => s.signal.includes('Bullish')).length}
+                            </div>
+                        </div>
+                        <div className="stat-card">
+                            <div className="stat-label">Bearish</div>
+                            <div className="stat-value" style={{color: '#ff4444'}}>
+                                {filteredSignals.filter(s => s.signal.includes('Bearish')).length}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="controls">
+                        <div className="filter-row">
+                            <div className="filter-group">
+                                <label>Signal Type:</label>
+                                <select value={filterSignalType} onChange={(e) => setFilterSignalType(e.target.value)}>
+                                    <option value="all">All Signals</option>
+                                    <option value="crossovers">All Crossovers (Bull & Bear)</option>
+                                    <option value="crossover-bull">Bullish Crossovers Only</option>
+                                    <option value="crossover-bear">Bearish Crossovers Only</option>
+                                    <option value="accelerations">All Accelerations (Bull & Bear)</option>
+                                    <option value="accel-bull">Bullish Acceleration Only</option>
+                                    <option value="accel-bear">Bearish Acceleration Only</option>
+                                </select>
+                            </div>
+
+                            <div className="filter-group">
+                                <label>Min 24h Vol:</label>
+                                <select value={minVolume} onChange={(e) => setMinVolume(Number(e.target.value))}>
+                                    <option value={0}>Any Volume</option>
+                                    <option value={500000}>$500k USDT</option>
+                                    <option value={1000000}>$1M USDT</option>
+                                    <option value={2000000}>$2M USDT</option>
+                                    <option value={5000000}>$5M USDT</option>
+                                    <option value={10000000}>$10M USDT</option>
+                                    <option value={50000000}>$50M USDT</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="filter-row">
+                            <div className="filter-group">
+                                <label>Timeframe:</label>
+                                <button className={filterTimeframe === 'all' ? 'active' : ''} onClick={() => setFilterTimeframe('all')}>All</button>
+                                <button className={filterTimeframe === '15m' ? 'active' : ''} onClick={() => setFilterTimeframe('15m')}>15m</button>
+                                <button className={filterTimeframe === '2h' ? 'active' : ''} onClick={() => setFilterTimeframe('2h')}>2h</button>
+                                <button className={filterTimeframe === '4h' ? 'active' : ''} onClick={() => setFilterTimeframe('4h')}>4h</button>
+                                <button className={filterTimeframe === '1d' ? 'active' : ''} onClick={() => setFilterTimeframe('1d')}>1d</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    {filteredSignals.length === 0 ? (
+                        <div className="empty-state">
+                            <p>⏳ {loading ? 'Scanning market...' : 'No matching signals found'}</p>
+                            <p style={{fontSize: '12px', color: '#555'}}>Try lowering volume constraints or choosing "All Signals".</p>
+                        </div>
+                    ) : (
+                        <table className="signals-table">
+                            <thead>
+                                <tr>
+                                    <th>Coin</th>
+                                    <th>Signal</th>
+                                    <th>Timeframe</th>
+                                    <th>Price</th>
+                                    <th>24h Vol (USDT)</th>
+                                    <th>Time</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {filteredSignals.map(sig => (
+                                    <tr key={sig.id}>
+                                        <td className="coin-name">{sig.symbol}</td>
+                                        <td>
+                                            <span className={`signal-badge ${getSignalClass(sig.signal)}`}>
+                                                {sig.signal}
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <span className="timeframe-badge">{sig.timeframe}</span>
+                                        </td>
+                                        <td className="price">${sig.price < 1 ? sig.price.toFixed(4) : sig.price.toFixed(2)}</td>
+                                        <td className="vol">{formatVolume(sig.volume24h)}</td>
+                                        <td className="timestamp">{formatTime(sig.timestamp)}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<CryptoScreener />);
+    </script>
+</body>
+</html>
