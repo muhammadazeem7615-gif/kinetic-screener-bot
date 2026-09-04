@@ -12,7 +12,7 @@ st.set_page_config(
 )
 
 # Fetch Binance Futures OHLCV via direct public REST endpoints
-def fetch_binance_klines(symbol, timeframe='1h', limit=60):
+def fetch_binance_klines(symbol, timeframe='1h', limit=100):
     symbol_formatted = symbol.replace('/', '').replace(':USDT', '')
     
     endpoints = [
@@ -26,6 +26,8 @@ def fetch_binance_klines(symbol, timeframe='1h', limit=60):
             res = requests.get(url, timeout=3)
             if res.status_code == 200:
                 data = res.json()
+                if len(data) < 30:  # Must have at least enough data to clear indicator lag
+                    continue
                 df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', '_1', '_2', '_3', '_4', '_5', '_6'])
                 df['close'] = df['close'].astype(float)
                 df['open'] = df['open'].astype(float)
@@ -61,18 +63,17 @@ def fetch_top_usdt_pairs(limit=100):
         except Exception:
             continue
 
-    # Expanded Fallback Top 100 USDT Pairs if Binance blocks initial symbol list call
     fallback_100 = [
         'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'NEARUSDT', 'LINKUSDT',
-        'SUIUSDT', 'PEPEUSDT', 'SHIBUSDT', 'APTUSDT', 'TAOUSDT', 'DOTUSDT', 'LTCUSDT', 'BCHUSDT', 'NEARUSDT', 'UNIUSDT',
+        'SUIUSDT', 'PEPEUSDT', 'SHIBUSDT', 'APTUSDT', 'TAOUSDT', 'DOTUSDT', 'LTCUSDT', 'BCHUSDT', 'UNIUSDT',
         'ICPUSDT', 'FETUSDT', 'RENDERUSDT', 'BONKUSDT', 'FLOKIUSDT', 'WIFUSDT', 'INJUSDT', 'TIAUSDT', 'STXUSDT', 'SEIUSDT',
         'OPUSDT', 'ARBUSDT', 'FILUSDT', 'TRXUSDT', 'ETCUSDT', 'XLMUSDT', 'RUNEUSDT', 'GALAUSDT', 'AAVEUSDT', 'LDOUSDT',
-        'ORDIUSDT', 'ARKMUSDT', 'ONDOUSDT', 'JUPUSDT', 'ENAUSDT', 'BEAMUSDT', 'NOTUSDT', 'TONUSDT', 'POCATUSDT', '1000SATSUSDT',
+        'ORDIUSDT', 'ARKMUSDT', 'ONDOUSDT', 'JUPUSDT', 'ENAUSDT', 'BEAMUSDT', 'NOTUSDT', 'TONUSDT', '1000SATSUSDT',
         'CRVUSDT', 'MKRUSDT', 'DYDXUSDT', 'COMPUSDT', 'SNXUSDT', 'EGLDUSDT', 'THETAUSDT', 'AXSUSDT', 'SANDUSDT', 'MANAUSDT',
         'EOSUSDT', 'FTMUSDT', 'FLOWUSDT', 'NEOUSDT', 'KAVAUSDT', 'ALGOUSDT', 'CHZUSDT', 'IOTAUSDT', 'ZECUSDT', 'DASHUSDT',
-        'XTZUSDT', 'MINAUSDT', 'COMPUSDT', 'HOTUSDT', 'CAKEUSDT', 'WOOUSDT', 'JTOUSDT', 'PYTHUSDT', 'STRKUSDT', 'MANTAUSDT',
+        'XTZUSDT', 'MINAUSDT', 'HOTUSDT', 'CAKEUSDT', 'WOOUSDT', 'JTOUSDT', 'PYTHUSDT', 'STRKUSDT', 'MANTAUSDT',
         'ALTUSDT', 'DYMUSDT', 'PIXELUSDT', 'PORTALUSDT', 'AEVOUSDT', 'ETHFIUSDT', 'BOMEUSDT', 'WUSDT', 'TNSRUSDT', 'SAFEUSDT',
-        'BBUSDT', 'IOUSDT', 'ZKUSDT', 'LISTAUSDT', 'ZROUSDT', 'BLASTUSDT', 'RENDERUSDT', 'LITUSDT', 'RVNUSDT', 'VENTUSDT'
+        'BBUSDT', 'IOUSDT', 'ZKUSDT', 'LISTAUSDT', 'ZROUSDT', 'BLASTUSDT', 'LITUSDT', 'RVNUSDT', 'VENTUSDT'
     ]
     return fallback_100[:limit]
 
@@ -112,12 +113,16 @@ def compute_kinetic_ribbon(df, length=20, mult=1.5, ma_type='EMA', fast_len=3, s
     df['bull_cross'] = df['trend_up'] & (~df['trend_up'].shift(1))
     df['bear_cross'] = (~df['trend_up']) & df['trend_up'].shift(1)
     df['bull_accel_trigger'] = (df['trend_up'] & df['acceleration']) & (~(df['trend_up'].shift(1) & df['acceleration'].shift(1)))
+    
+    # CORRECTED BEAR ACCELERATION LOGIC
     df['bear_accel_trigger'] = ((~df['trend_up']) & (~df['acceleration'])) & (~((~df['trend_up'].shift(1)) & (~df['acceleration'].shift(1))))
 
+    # Clean up NaN warm-up rows safely
+    df = df.dropna().reset_index(drop=True)
     return df
 
 # Scanner Engine
-def scan_markets(max_coins=100, gap_threshold=1.5):
+def scan_markets(max_coins=100, gap_threshold=2.5):
     timeframes = ['1h', '4h', '1d']
     results = {
         "approaching_bullish": [],
@@ -136,15 +141,21 @@ def scan_markets(max_coins=100, gap_threshold=1.5):
 
         for tf in timeframes:
             try:
-                df = fetch_binance_klines(symbol, timeframe=tf, limit=60)
+                df = fetch_binance_klines(symbol, timeframe=tf, limit=100)
                 if df is None or df.empty:
                     continue
                 
                 df = compute_kinetic_ribbon(df)
+                if df.empty:
+                    continue
+
                 last_bar = df.iloc[-1]
                 price = last_bar['close']
                 gap = last_bar['ribbon_gap_pct']
                 gap_change = last_bar['ribbon_gap_change']
+
+                if np.isnan(gap) or np.isnan(gap_change):
+                    continue
 
                 # 1. Active Triggers
                 if last_bar['bull_cross']:
