@@ -6,7 +6,7 @@ import streamlit as st
 
 # Streamlit Page Setup
 st.set_page_config(
-    page_title="Adaptive Kinetic Ribbon Screener",
+    page_title="Adaptive Kinetic Ribbon Web Screener",
     page_icon="⚡",
     layout="wide"
 )
@@ -16,14 +16,14 @@ def fetch_binance_klines(symbol, timeframe='1h', limit=60):
     symbol_formatted = symbol.replace('/', '').replace(':USDT', '')
     
     endpoints = [
-        f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol_formatted}&interval={timeframe}&limit={limit}",
+        f"https://data-api.binance.vision/api/v3/klines?symbol={symbol_formatted}&interval={timeframe}&limit={limit}",
         f"https://api.binance.com/api/v3/klines?symbol={symbol_formatted}&interval={timeframe}&limit={limit}",
-        f"https://data-api.binance.vision/api/v3/klines?symbol={symbol_formatted}&interval={timeframe}&limit={limit}"
+        f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol_formatted}&interval={timeframe}&limit={limit}"
     ]
 
     for url in endpoints:
         try:
-            res = requests.get(url, timeout=4)
+            res = requests.get(url, timeout=3)
             if res.status_code == 200:
                 data = res.json()
                 df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', '_1', '_2', '_3', '_4', '_5', '_6'])
@@ -36,26 +36,52 @@ def fetch_binance_klines(symbol, timeframe='1h', limit=60):
             continue
     return None
 
+@st.cache_data(ttl=3600)
 def fetch_top_usdt_pairs(limit=100):
-    try:
-        url = "https://fapi.binance.com/fapi/v1/ticker/24hr"
-        res = requests.get(url, timeout=5)
-        if res.status_code == 200:
-            data = res.json()
-            sorted_data = sorted(data, key=lambda x: float(x.get('quoteVolume', 0)), reverse=True)
-            symbols = [item['symbol'] for item in sorted_data if item['symbol'].endswith('USDT') and not item['symbol'].startswith('USDC')][:limit]
-            return symbols
-    except Exception:
-        pass
+    endpoints = [
+        "https://data-api.binance.vision/api/v3/ticker/24hr",
+        "https://api.binance.com/api/v3/ticker/24hr",
+        "https://fapi.binance.com/fapi/v1/ticker/24hr"
+    ]
     
-    return ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'NEARUSDT', 'LINKUSDT', 'TAOUSDT', 'BONKUSDT', 'LITUSDT'][:limit]
+    for url in endpoints:
+        try:
+            res = requests.get(url, timeout=5)
+            if res.status_code == 200:
+                data = res.json()
+                sorted_data = sorted(data, key=lambda x: float(x.get('quoteVolume', 0)), reverse=True)
+                symbols = [
+                    item['symbol'] for item in sorted_data 
+                    if item['symbol'].endswith('USDT') 
+                    and not item['symbol'].startswith('USDC')
+                    and not item['symbol'].startswith('FDUSD')
+                ]
+                if len(symbols) >= limit:
+                    return symbols[:limit]
+        except Exception:
+            continue
+
+    # Expanded Fallback Top 100 USDT Pairs if Binance blocks initial symbol list call
+    fallback_100 = [
+        'BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'NEARUSDT', 'LINKUSDT',
+        'SUIUSDT', 'PEPEUSDT', 'SHIBUSDT', 'APTUSDT', 'TAOUSDT', 'DOTUSDT', 'LTCUSDT', 'BCHUSDT', 'NEARUSDT', 'UNIUSDT',
+        'ICPUSDT', 'FETUSDT', 'RENDERUSDT', 'BONKUSDT', 'FLOKIUSDT', 'WIFUSDT', 'INJUSDT', 'TIAUSDT', 'STXUSDT', 'SEIUSDT',
+        'OPUSDT', 'ARBUSDT', 'FILUSDT', 'TRXUSDT', 'ETCUSDT', 'XLMUSDT', 'RUNEUSDT', 'GALAUSDT', 'AAVEUSDT', 'LDOUSDT',
+        'ORDIUSDT', 'ARKMUSDT', 'ONDOUSDT', 'JUPUSDT', 'ENAUSDT', 'BEAMUSDT', 'NOTUSDT', 'TONUSDT', 'POCATUSDT', '1000SATSUSDT',
+        'CRVUSDT', 'MKRUSDT', 'DYDXUSDT', 'COMPUSDT', 'SNXUSDT', 'EGLDUSDT', 'THETAUSDT', 'AXSUSDT', 'SANDUSDT', 'MANAUSDT',
+        'EOSUSDT', 'FTMUSDT', 'FLOWUSDT', 'NEOUSDT', 'KAVAUSDT', 'ALGOUSDT', 'CHZUSDT', 'IOTAUSDT', 'ZECUSDT', 'DASHUSDT',
+        'XTZUSDT', 'MINAUSDT', 'COMPUSDT', 'HOTUSDT', 'CAKEUSDT', 'WOOUSDT', 'JTOUSDT', 'PYTHUSDT', 'STRKUSDT', 'MANTAUSDT',
+        'ALTUSDT', 'DYMUSDT', 'PIXELUSDT', 'PORTALUSDT', 'AEVOUSDT', 'ETHFIUSDT', 'BOMEUSDT', 'WUSDT', 'TNSRUSDT', 'SAFEUSDT',
+        'BBUSDT', 'IOUSDT', 'ZKUSDT', 'LISTAUSDT', 'ZROUSDT', 'BLASTUSDT', 'RENDERUSDT', 'LITUSDT', 'RVNUSDT', 'VENTUSDT'
+    ]
+    return fallback_100[:limit]
 
 def calculate_ma(series, length, ma_type='EMA'):
     if ma_type == 'SMA':
         return series.rolling(window=length).mean()
     return series.ewm(span=length, adjust=False).mean()
 
-# Pine Script Indicator Logic (100% Exact Math)
+# Pine Script Indicator Logic
 def compute_kinetic_ribbon(df, length=20, mult=1.5, ma_type='EMA', fast_len=3, slow_len=8):
     source = df['close']
     velocity = source - source.shift(length)
@@ -105,7 +131,7 @@ def scan_markets(max_coins=100, gap_threshold=1.5):
 
     for idx, symbol in enumerate(symbols):
         pair_name = symbol.replace('USDT', '')
-        status_text.text(f"Scanning Binance Futures ({idx+1}/{len(symbols)}): #{pair_name}")
+        status_text.text(f"Scanning Binance Pairs ({idx+1}/{len(symbols)}): #{pair_name}")
         progress_bar.progress((idx + 1) / len(symbols))
 
         for tf in timeframes:
@@ -120,7 +146,7 @@ def scan_markets(max_coins=100, gap_threshold=1.5):
                 gap = last_bar['ribbon_gap_pct']
                 gap_change = last_bar['ribbon_gap_change']
 
-                # 1. Active Triggers (Fired on current bar)
+                # 1. Active Triggers
                 if last_bar['bull_cross']:
                     results["active_triggers"].append({
                         "Coin": pair_name, "TF": tf, "Trigger": "🚀 Bullish Crossover",
@@ -142,14 +168,14 @@ def scan_markets(max_coins=100, gap_threshold=1.5):
                         "Price": f"${price:,.4f}", "Ribbon Gap": f"{gap:.2f}%"
                     })
 
-                # 2. Approaching Bullish (Fast ribbon below slow, gap narrowing)
+                # 2. Approaching Bullish
                 elif gap < 0 and abs(gap) <= gap_threshold and gap_change > 0:
                     results["approaching_bullish"].append({
                         "Coin": pair_name, "TF": tf, "Price": f"${price:,.4f}",
                         "Distance to Ribbon": f"{abs(gap):.2f}%", "Kinetic Status": "Closing In Upward ⬆️"
                     })
 
-                # 3. Approaching Bearish (Fast ribbon above slow, gap narrowing)
+                # 3. Approaching Bearish
                 elif gap > 0 and abs(gap) <= gap_threshold and gap_change < 0:
                     results["approaching_bearish"].append({
                         "Coin": pair_name, "TF": tf, "Price": f"${price:,.4f}",
@@ -158,7 +184,6 @@ def scan_markets(max_coins=100, gap_threshold=1.5):
 
             except Exception:
                 continue
-        time.sleep(0.01)
 
     status_text.success("Scan completed successfully!")
     progress_bar.empty()
@@ -170,8 +195,8 @@ st.caption("Real-time multi-timeframe scanner powered by Pine Script dynamic vel
 
 col1, col2 = st.columns([1, 3])
 with col1:
-    coin_limit = st.slider("Top Volume Pairs to Scan", 10, 200, 100, step=10)
-    threshold = st.slider("Approaching Gap Threshold (%)", 0.5, 3.0, 1.5, step=0.1)
+    coin_limit = st.slider("Top Volume Pairs to Scan", 10, 100, 50, step=10)
+    threshold = st.slider("Approaching Gap Threshold (%)", 0.5, 5.0, 2.5, step=0.1)
     start_button = st.button("🚀 Start Scanner", use_container_width=True)
 
 if start_button:
