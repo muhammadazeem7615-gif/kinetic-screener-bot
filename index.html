@@ -402,16 +402,18 @@
                 const trendUp = current.ribbonFast > current.ribbonSlow;
                 const trendUpPrev = previous.ribbonFast > previous.ribbonSlow;
 
-                const accelerating = current.ribbonFast > previous.ribbonFast;
-                const acceleratingPrev = previous.ribbonFast > previousPrev.ribbonFast;
+                // Calculate actual velocity (rate of change of the ribbon) to detect acceleration vs deceleration properly
+                const velocityNow = current.ribbonFast - previous.ribbonFast;
+                const velocityPrev = previous.ribbonFast - previousPrev.ribbonFast;
+                const isAccelerating = velocityNow > velocityPrev;
 
                 const bullishCrossover = !trendUpPrev && trendUp;
                 const bearishCrossover = trendUpPrev && !trendUp;
 
-                const bullAccel = trendUp && accelerating && !(trendUpPrev && acceleratingPrev);
-                const bullDecel = trendUp && !accelerating && !(trendUpPrev && !acceleratingPrev);
-                const bearAccel = !trendUp && !accelerating && !(trendUpPrev && !acceleratingPrev);
-                const bearDecel = !trendUp && accelerating && !(trendUpPrev && acceleratingPrev);
+                const bullAccel = trendUp && isAccelerating;
+                const bullDecel = trendUp && !isAccelerating;
+                const bearAccel = !trendUp && (velocityNow < velocityPrev); // dropping faster (more negative delta change)
+                const bearDecel = !trendUp && (velocityNow >= velocityPrev); // drop is slowing down / flattening
 
                 const detected = [];
                 if (bullishCrossover) detected.push('Bullish Crossover');
