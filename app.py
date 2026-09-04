@@ -1,47 +1,63 @@
-import os
 import time
 import requests
-import ccxt
 import pandas as pd
 import numpy as np
+import streamlit as st
 
-# Configuration from Environment Variables (for secure cloud hosting)
-TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN', 'YOUR_TELEGRAM_BOT_TOKEN')
-TELEGRAM_CHAT_ID = os.getenv('TELEGRAM_CHAT_ID', 'YOUR_TELEGRAM_CHAT_ID')
+# Streamlit Page Setup
+st.set_page_config(
+    page_title="Adaptive Kinetic Ribbon Screener",
+    page_icon="⚡",
+    layout="wide"
+)
 
-exchange = ccxt.binance({
-    'options': {'defaultType': 'future'},
-    'enableRateLimit': True,
-    'urls': {
-        'api': {
-            'public': 'https://data-api.binance.vision/api/v3',
-            'fapi': 'https://fapi.binance.com/fapi/v1',
-        }
-    }
-})
-
-def send_telegram_alert(message):
-    """Sends immediate push notification to your phone via Telegram."""
-    if TELEGRAM_TOKEN == 'YOUR_TELEGRAM_BOT_TOKEN':
-        print(message)
-        return
+# Fetch Binance Futures OHLCV via direct public REST endpoints with fallback
+def fetch_binance_klines(symbol, timeframe='1h', limit=60):
+    symbol_formatted = symbol.replace('/', '').replace(':USDT', '')
     
-    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    payload = {
-        "chat_id": TELEGRAM_CHAT_ID,
-        "text": message,
-        "parse_mode": "Markdown"
-    }
+    # Primary & Proxy Endpoints to bypass US Cloud IP blocks
+    endpoints = [
+        f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol_formatted}&interval={timeframe}&limit={limit}",
+        f"https://api.binance.com/api/v3/klines?symbol={symbol_formatted}&interval={timeframe}&limit={limit}",
+        f"https://data-api.binance.vision/api/v3/klines?symbol={symbol_formatted}&interval={timeframe}&limit={limit}"
+    ]
+
+    for url in endpoints:
+        try:
+            res = requests.get(url, timeout=5)
+            if res.status_code == 200:
+                data = res.json()
+                df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', '_1', '_2', '_3', '_4', '_5', '_6'])
+                df['close'] = df['close'].astype(float)
+                df['open'] = df['open'].astype(float)
+                df['high'] = df['high'].astype(float)
+                df['low'] = df['low'].astype(float)
+                return df
+        except Exception:
+            continue
+    return None
+
+def fetch_top_usdt_pairs(limit=30):
     try:
-        requests.post(url, json=payload, timeout=5)
-    except Exception as e:
-        print(f"Failed to send Telegram alert: {e}")
+        url = "https://fapi.binance.com/fapi/v1/ticker/24hr"
+        res = requests.get(url, timeout=5)
+        if res.status_code == 200:
+            data = res.json()
+            sorted_data = sorted(data, key=lambda x: float(x.get('quoteVolume', 0)), reverse=True)
+            symbols = [item['symbol'] for item in sorted_data if item['symbol'].endswith('USDT')][:limit]
+            return symbols
+    except Exception:
+        pass
+    
+    # Fallback default high-volume pairs if ticker fetch is blocked
+    return ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'NEARUSDT', 'LINKUSDT'][:limit]
 
 def calculate_ma(series, length, ma_type='EMA'):
     if ma_type == 'SMA':
         return series.rolling(window=length).mean()
     return series.ewm(span=length, adjust=False).mean()
 
+# Pine Script Indicator Logic
 def compute_kinetic_ribbon(df, length=20, mult=1.5, ma_type='EMA', fast_len=3, slow_len=8):
     source = df['close']
     velocity = source - source.shift(length)
@@ -63,10 +79,12 @@ def compute_kinetic_ribbon(df, length=20, mult=1.5, ma_type='EMA', fast_len=3, s
     df['ribbon_fast'] = calculate_ma(df['kinetic_line'], fast_len, ma_type)
     df['ribbon_slow'] = calculate_ma(df['kinetic_line'], slow_len, ma_type)
 
+    df['ribbon_gap_pct'] = ((df['ribbon_fast'] - df['ribbon_slow']) / df['close']) * 100
+    df['ribbon_gap_change'] = df['ribbon_gap_pct'] - df['ribbon_gap_pct'].shift(1)
+
     df['trend_up'] = df['ribbon_fast'] > df['ribbon_slow']
     df['acceleration'] = df['ribbon_fast'] > df['ribbon_fast'].shift(1)
 
-    # State triggers on current candle
     df['bull_cross'] = df['trend_up'] & (~df['trend_up'].shift(1))
     df['bear_cross'] = (~df['trend_up']) & df['trend_up'].shift(1)
     df['bull_accel_trigger'] = (df['trend_up'] & df['acceleration']) & (~(df['trend_up'].shift(1) & df['acceleration'].shift(1)))
@@ -74,46 +92,110 @@ def compute_kinetic_ribbon(df, length=20, mult=1.5, ma_type='EMA', fast_len=3, s
 
     return df
 
-def run_scan():
-    markets = exchange.load_markets()
-    symbols = [m for m in markets if markets[m]['linear'] and markets[m]['quote'] == 'USDT' and markets[m]['active']]
-    
-    tickers = exchange.fetch_tickers()
-    sorted_symbols = sorted(
-        symbols, 
-        key=lambda x: tickers[x]['quoteVolume'] if x in tickers and tickers[x]['quoteVolume'] is not None else 0, 
-        reverse=True
-    )[:40]
+# Scanner Engine
+def scan_markets(max_coins=30):
+    timeframes = ['1h', '4h', '1d']
+    results = {
+        "approaching_bullish": [],
+        "approaching_bearish": [],
+        "active_triggers": []
+    }
 
-    for symbol in sorted_symbols:
-        try:
-            ohlcv = exchange.fetch_ohlcv(symbol, timeframe='15m', limit=50)
-            df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
-            df = compute_kinetic_ribbon(df)
+    symbols = fetch_top_usdt_pairs(limit=max_coins)
+    progress_bar = st.progress(0)
+    status_text = st.empty()
 
-            last_bar = df.iloc[-1]
-            pair_name = symbol.replace('/USDT:USDT', '')
-            price = last_bar['close']
+    for idx, symbol in enumerate(symbols):
+        pair_name = symbol.replace('USDT', '')
+        status_text.text(f"Scanning Binance Futures ({idx+1}/{len(symbols)}): #{pair_name}")
+        progress_bar.progress((idx + 1) / len(symbols))
 
-            # Send push alert if a fresh trigger occurred
-            if last_bar['bull_cross']:
-                msg = f"🚀 *BULLISH CROSSOVER DETECTED*\n\n*Coin:* #{pair_name}\n*Price:* ${price}\n*Timeframe:* 15m\n*Action:* Look for LONG entry setup."
-                send_telegram_alert(msg)
-            elif last_bar['bear_cross']:
-                msg = f"🔻 *BEARISH CROSSOVER DETECTED*\n\n*Coin:* #{pair_name}\n*Price:* ${price}\n*Timeframe:* 15m\n*Action:* Look for SHORT entry setup."
-                send_telegram_alert(msg)
-            elif last_bar['bull_accel_trigger']:
-                msg = f"⚡ *BULLISH ACCELERATION*\n\n*Coin:* #{pair_name}\n*Price:* ${price}\n*Timeframe:* 15m"
-                send_telegram_alert(msg)
-            elif last_bar['bear_accel_trigger']:
-                msg = f"⚡ *BEARISH ACCELERATION*\n\n*Coin:* #{pair_name}\n*Price:* ${price}\n*Timeframe:* 15m"
-                send_telegram_alert(msg)
+        for tf in timeframes:
+            try:
+                df = fetch_binance_klines(symbol, timeframe=tf, limit=60)
+                if df is None or df.empty:
+                    continue
+                
+                df = compute_kinetic_ribbon(df)
+                last_bar = df.iloc[-1]
+                price = last_bar['close']
+                gap = last_bar['ribbon_gap_pct']
+                gap_change = last_bar['ribbon_gap_change']
 
-        except Exception:
-            continue
+                # Active Triggers
+                if last_bar['bull_cross']:
+                    results["active_triggers"].append({
+                        "Coin": pair_name, "TF": tf, "Trigger": "🚀 Bullish Crossover",
+                        "Price": f"${price:,.4f}", "Ribbon Gap": f"{gap:.2f}%"
+                    })
+                elif last_bar['bear_cross']:
+                    results["active_triggers"].append({
+                        "Coin": pair_name, "TF": tf, "Trigger": "🔻 Bearish Crossover",
+                        "Price": f"${price:,.4f}", "Ribbon Gap": f"{gap:.2f}%"
+                    })
+                elif last_bar['bull_accel_trigger']:
+                    results["active_triggers"].append({
+                        "Coin": pair_name, "TF": tf, "Trigger": "⚡ Bullish Acceleration",
+                        "Price": f"${price:,.4f}", "Ribbon Gap": f"{gap:.2f}%"
+                    })
+                elif last_bar['bear_accel_trigger']:
+                    results["active_triggers"].append({
+                        "Coin": pair_name, "TF": tf, "Trigger": "⚡ Bearish Acceleration",
+                        "Price": f"${price:,.4f}", "Ribbon Gap": f"{gap:.2f}%"
+                    })
 
-if __name__ == '__main__':
-    print("Scanner active. Monitoring Binance Futures...")
-    while True:
-        run_scan()
-        time.sleep(30)  # Scan every 30 seconds
+                # Approaching Bullish
+                elif gap < 0 and abs(gap) <= 0.8 and gap_change > 0:
+                    results["approaching_bullish"].append({
+                        "Coin": pair_name, "TF": tf, "Price": f"${price:,.4f}",
+                        "Distance to Ribbon": f"{abs(gap):.2f}%", "Kinetic Status": "Closing In Upward ⬆️"
+                    })
+
+                # Approaching Bearish
+                elif gap > 0 and abs(gap) <= 0.8 and gap_change < 0:
+                    results["approaching_bearish"].append({
+                        "Coin": pair_name, "TF": tf, "Price": f"${price:,.4f}",
+                        "Distance to Ribbon": f"{gap:.2f}%", "Kinetic Status": "Closing In Downward ⬇️"
+                    })
+
+            except Exception:
+                continue
+        time.sleep(0.01)
+
+    status_text.success("Scan completed successfully!")
+    progress_bar.empty()
+    return results
+
+# Frontend UI
+st.title("⚡ Adaptive Kinetic Ribbon Web Screener")
+st.caption("Real-time multi-timeframe scanner powered by Pine Script dynamic velocity/volatility ribbon math.")
+
+col1, col2 = st.columns([1, 4])
+with col1:
+    coin_limit = st.slider("Top Volume Pairs to Scan", 10, 50, 30)
+    start_button = st.button("🚀 Start Scanner", use_container_width=True)
+
+if start_button:
+    with st.spinner("Executing ribbon algorithms..."):
+        scan_data = scan_markets(max_coins=coin_limit)
+
+    if scan_data:
+        st.markdown("---")
+
+        st.subheader("🟢 1. Approaching Bullish Crossover & Acceleration (1h, 4h, 1d)")
+        if scan_data["approaching_bullish"]:
+            st.dataframe(pd.DataFrame(scan_data["approaching_bullish"]), use_container_width=True)
+        else:
+            st.info("No coins currently approaching a bullish crossover within the 0.8% threshold.")
+
+        st.subheader("🔴 2. Approaching Bearish Crossover & Acceleration (1h, 4h, 1d)")
+        if scan_data["approaching_bearish"]:
+            st.dataframe(pd.DataFrame(scan_data["approaching_bearish"]), use_container_width=True)
+        else:
+            st.info("No coins currently approaching a bearish crossover within the 0.8% threshold.")
+
+        st.subheader("⚡ 3. Active Triggers (Fired on Current Candle)")
+        if scan_data["active_triggers"]:
+            st.dataframe(pd.DataFrame(scan_data["active_triggers"]), use_container_width=True)
+        else:
+            st.info("No active crossover or acceleration triggers on current candle bars.")
