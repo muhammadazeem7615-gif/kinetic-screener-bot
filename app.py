@@ -11,11 +11,10 @@ st.set_page_config(
     layout="wide"
 )
 
-# Fetch Binance Futures OHLCV via direct public REST endpoints with fallback
+# Fetch Binance Futures OHLCV via direct public REST endpoints
 def fetch_binance_klines(symbol, timeframe='1h', limit=60):
     symbol_formatted = symbol.replace('/', '').replace(':USDT', '')
     
-    # Primary & Proxy Endpoints to bypass US Cloud IP blocks
     endpoints = [
         f"https://fapi.binance.com/fapi/v1/klines?symbol={symbol_formatted}&interval={timeframe}&limit={limit}",
         f"https://api.binance.com/api/v3/klines?symbol={symbol_formatted}&interval={timeframe}&limit={limit}",
@@ -24,7 +23,7 @@ def fetch_binance_klines(symbol, timeframe='1h', limit=60):
 
     for url in endpoints:
         try:
-            res = requests.get(url, timeout=5)
+            res = requests.get(url, timeout=4)
             if res.status_code == 200:
                 data = res.json()
                 df = pd.DataFrame(data, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume', '_1', '_2', '_3', '_4', '_5', '_6'])
@@ -37,27 +36,26 @@ def fetch_binance_klines(symbol, timeframe='1h', limit=60):
             continue
     return None
 
-def fetch_top_usdt_pairs(limit=30):
+def fetch_top_usdt_pairs(limit=100):
     try:
         url = "https://fapi.binance.com/fapi/v1/ticker/24hr"
         res = requests.get(url, timeout=5)
         if res.status_code == 200:
             data = res.json()
             sorted_data = sorted(data, key=lambda x: float(x.get('quoteVolume', 0)), reverse=True)
-            symbols = [item['symbol'] for item in sorted_data if item['symbol'].endswith('USDT')][:limit]
+            symbols = [item['symbol'] for item in sorted_data if item['symbol'].endswith('USDT') and not item['symbol'].startswith('USDC')][:limit]
             return symbols
     except Exception:
         pass
     
-    # Fallback default high-volume pairs if ticker fetch is blocked
-    return ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'NEARUSDT', 'LINKUSDT'][:limit]
+    return ['BTCUSDT', 'ETHUSDT', 'SOLUSDT', 'BNBUSDT', 'XRPUSDT', 'DOGEUSDT', 'ADAUSDT', 'AVAXUSDT', 'NEARUSDT', 'LINKUSDT', 'TAOUSDT', 'BONKUSDT', 'LITUSDT'][:limit]
 
 def calculate_ma(series, length, ma_type='EMA'):
     if ma_type == 'SMA':
         return series.rolling(window=length).mean()
     return series.ewm(span=length, adjust=False).mean()
 
-# Pine Script Indicator Logic
+# Pine Script Indicator Logic (100% Exact Math)
 def compute_kinetic_ribbon(df, length=20, mult=1.5, ma_type='EMA', fast_len=3, slow_len=8):
     source = df['close']
     velocity = source - source.shift(length)
@@ -93,7 +91,7 @@ def compute_kinetic_ribbon(df, length=20, mult=1.5, ma_type='EMA', fast_len=3, s
     return df
 
 # Scanner Engine
-def scan_markets(max_coins=30):
+def scan_markets(max_coins=100, gap_threshold=1.5):
     timeframes = ['1h', '4h', '1d']
     results = {
         "approaching_bullish": [],
@@ -122,7 +120,7 @@ def scan_markets(max_coins=30):
                 gap = last_bar['ribbon_gap_pct']
                 gap_change = last_bar['ribbon_gap_change']
 
-                # Active Triggers
+                # 1. Active Triggers (Fired on current bar)
                 if last_bar['bull_cross']:
                     results["active_triggers"].append({
                         "Coin": pair_name, "TF": tf, "Trigger": "🚀 Bullish Crossover",
@@ -144,15 +142,15 @@ def scan_markets(max_coins=30):
                         "Price": f"${price:,.4f}", "Ribbon Gap": f"{gap:.2f}%"
                     })
 
-                # Approaching Bullish
-                elif gap < 0 and abs(gap) <= 0.8 and gap_change > 0:
+                # 2. Approaching Bullish (Fast ribbon below slow, gap narrowing)
+                elif gap < 0 and abs(gap) <= gap_threshold and gap_change > 0:
                     results["approaching_bullish"].append({
                         "Coin": pair_name, "TF": tf, "Price": f"${price:,.4f}",
                         "Distance to Ribbon": f"{abs(gap):.2f}%", "Kinetic Status": "Closing In Upward ⬆️"
                     })
 
-                # Approaching Bearish
-                elif gap > 0 and abs(gap) <= 0.8 and gap_change < 0:
+                # 3. Approaching Bearish (Fast ribbon above slow, gap narrowing)
+                elif gap > 0 and abs(gap) <= gap_threshold and gap_change < 0:
                     results["approaching_bearish"].append({
                         "Coin": pair_name, "TF": tf, "Price": f"${price:,.4f}",
                         "Distance to Ribbon": f"{gap:.2f}%", "Kinetic Status": "Closing In Downward ⬇️"
@@ -170,14 +168,15 @@ def scan_markets(max_coins=30):
 st.title("⚡ Adaptive Kinetic Ribbon Web Screener")
 st.caption("Real-time multi-timeframe scanner powered by Pine Script dynamic velocity/volatility ribbon math.")
 
-col1, col2 = st.columns([1, 4])
+col1, col2 = st.columns([1, 3])
 with col1:
-    coin_limit = st.slider("Top Volume Pairs to Scan", 10, 50, 30)
+    coin_limit = st.slider("Top Volume Pairs to Scan", 10, 200, 100, step=10)
+    threshold = st.slider("Approaching Gap Threshold (%)", 0.5, 3.0, 1.5, step=0.1)
     start_button = st.button("🚀 Start Scanner", use_container_width=True)
 
 if start_button:
     with st.spinner("Executing ribbon algorithms..."):
-        scan_data = scan_markets(max_coins=coin_limit)
+        scan_data = scan_markets(max_coins=coin_limit, gap_threshold=threshold)
 
     if scan_data:
         st.markdown("---")
@@ -186,13 +185,13 @@ if start_button:
         if scan_data["approaching_bullish"]:
             st.dataframe(pd.DataFrame(scan_data["approaching_bullish"]), use_container_width=True)
         else:
-            st.info("No coins currently approaching a bullish crossover within the 0.8% threshold.")
+            st.info(f"No coins currently approaching a bullish crossover within the {threshold}% threshold.")
 
         st.subheader("🔴 2. Approaching Bearish Crossover & Acceleration (1h, 4h, 1d)")
         if scan_data["approaching_bearish"]:
             st.dataframe(pd.DataFrame(scan_data["approaching_bearish"]), use_container_width=True)
         else:
-            st.info("No coins currently approaching a bearish crossover within the 0.8% threshold.")
+            st.info(f"No coins currently approaching a bearish crossover within the {threshold}% threshold.")
 
         st.subheader("⚡ 3. Active Triggers (Fired on Current Candle)")
         if scan_data["active_triggers"]:
