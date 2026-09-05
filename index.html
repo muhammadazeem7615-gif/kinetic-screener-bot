@@ -311,18 +311,20 @@
     <div id="root"></div>
 
     <script type="text/babel">
-        const { useState, useEffect, useCallback } = React;
+        const { useState, useEffect, useCallback, useRef } = React;
 
         function CryptoScreener() {
             const [signals, setSignals] = useState([]);
             const [loading, setLoading] = useState(false);
             const [error, setError] = useState('');
             const [lastUpdate, setLastUpdate] = useState(null);
+            const [notificationsEnabled, setNotificationsEnabled] = useState(false);
             
-            // Filter States
+            const knownSignalsRef = useRef(new Set());
+
             const [filterTimeframe, setFilterTimeframe] = useState('all');
             const [filterSignalType, setFilterSignalType] = useState('all');
-            const [minVolume, setMinVolume] = useState(500000); // Default $500k USDT
+            const [minVolume, setMinVolume] = useState(500000);
 
             const INDICATOR_PARAMS = {
                 length: 20,
@@ -338,6 +340,25 @@
                 { name: '1d', minutes: 1440 }
             ];
 
+            const requestNotificationPermission = () => {
+                if (!("Notification" in window)) {
+                    alert("This browser does not support desktop notifications.");
+                    return;
+                }
+                Notification.requestPermission().then(permission => {
+                    if (permission === "granted") {
+                        setNotificationsEnabled(true);
+                        new Notification("Crypto Screener", { body: "Notifications successfully enabled for crossovers!" });
+                    }
+                });
+            };
+
+            useEffect(() => {
+                if ("Notification" in window && Notification.permission === "granted") {
+                    setNotificationsEnabled(true);
+                }
+            }, []);
+
             const fetchBinance = async (url) => {
                 try {
                     const res = await fetch(url);
@@ -352,7 +373,7 @@
 
             const calculateIndicatorSeries = (closes) => {
                 const minReq = INDICATOR_PARAMS.length + INDICATOR_PARAMS.ribbonSlowLength + 5;
-                if (closes.length < minReq) return null;
+                if (!Array.isArray(closes) || closes.length < minReq) return null;
 
                 const length = INDICATOR_PARAMS.length;
                 const kineticSeries = [];
@@ -373,9 +394,11 @@
                 }
 
                 const getRibbonStateAt = (idx) => {
-                    if (idx < INDICATOR_PARAMS.ribbonSlowLength - 1) return null;
+                    if (idx < INDICATOR_PARAMS.ribbonSlowLength - 1 || idx >= kineticSeries.length) return null;
                     const fastSlice = kineticSeries.slice(idx - INDICATOR_PARAMS.ribbonFastLength + 1, idx + 1);
                     const slowSlice = kineticSeries.slice(idx - INDICATOR_PARAMS.ribbonSlowLength + 1, idx + 1);
+
+                    if (fastSlice.length < INDICATOR_PARAMS.ribbonFastLength || slowSlice.length < INDICATOR_PARAMS.ribbonSlowLength) return null;
 
                     const ribbonFast = fastSlice.reduce((a, b) => a + b, 0) / INDICATOR_PARAMS.ribbonFastLength;
                     const ribbonSlow = slowSlice.reduce((a, b) => a + b, 0) / INDICATOR_PARAMS.ribbonSlowLength;
@@ -402,18 +425,17 @@
                 const trendUp = current.ribbonFast > current.ribbonSlow;
                 const trendUpPrev = previous.ribbonFast > previous.ribbonSlow;
 
-                // Calculate actual velocity (rate of change of the ribbon) to detect acceleration vs deceleration properly
+                const bullishCrossover = !trendUpPrev && trendUp;
+                const bearishCrossover = trendUpPrev && !trendUp;
+
                 const velocityNow = current.ribbonFast - previous.ribbonFast;
                 const velocityPrev = previous.ribbonFast - previousPrev.ribbonFast;
                 const isAccelerating = velocityNow > velocityPrev;
 
-                const bullishCrossover = !trendUpPrev && trendUp;
-                const bearishCrossover = trendUpPrev && !trendUp;
-
                 const bullAccel = trendUp && isAccelerating;
                 const bullDecel = trendUp && !isAccelerating;
-                const bearAccel = !trendUp && (velocityNow < velocityPrev); // dropping faster (more negative delta change)
-                const bearDecel = !trendUp && (velocityNow >= velocityPrev); // drop is slowing down / flattening
+                const bearAccel = !trendUp && (velocityNow < velocityPrev);
+                const bearDecel = !trendUp && (velocityNow >= velocityPrev);
 
                 const detected = [];
                 if (bullishCrossover) detected.push('Bullish Crossover');
@@ -434,15 +456,16 @@
                 try {
                     const ticker24h = await fetchBinance('https://fapi.binance.com/fapi/v1/ticker/24hr');
                     const volumeMap = {};
-                    ticker24h.forEach(t => {
-                        volumeMap[t.symbol] = parseFloat(t.quoteVolume);
-                    });
+                    if (Array.isArray(ticker24h)) {
+                        ticker24h.forEach(t => {
+                            volumeMap[t.symbol] = parseFloat(t.quoteVolume);
+                        });
+                    }
 
                     const exchangeInfo = await fetchBinance('https://fapi.binance.com/fapi/v1/exchangeInfo');
-                    const symbols = exchangeInfo.symbols
-                        .filter(s => s.status === 'TRADING' && s.quoteAsset === 'USDT')
-                        .map(s => s.symbol)
-                        .slice(0, 60);
+                    const symbols = exchangeInfo && exchangeInfo.symbols
+                        ? exchangeInfo.symbols.filter(s => s.status === 'TRADING' && s.quoteAsset === 'USDT').map(s => s.symbol).slice(0, 60)
+                        : [];
 
                     const batchSize = 5;
                     for (let i = 0; i < symbols.length; i += batchSize) {
@@ -463,8 +486,19 @@
 
                                     if (detectedSignals) {
                                         detectedSignals.forEach(signal => {
+                                            const signalId = `${symbol}-${tf.name}-${signal}`;
+                                            
+                                            if (signal.includes('Crossover') && !knownSignalsRef.current.has(signalId)) {
+                                                knownSignalsRef.current.add(signalId);
+                                                if (Notification.permission === "granted") {
+                                                    new Notification(`🚨 ${signal} Detected!`, {
+                                                        body: `${symbol.replace('USDT', '')} on ${tf.name} timeframe just crossed over.`,
+                                                    });
+                                                }
+                                            }
+
                                             newSignals.push({
-                                                id: `${symbol}-${tf.name}-${signal}`,
+                                                id: signalId,
                                                 symbol: symbol.replace('USDT', ''),
                                                 timeframe: tf.name,
                                                 signal,
@@ -475,7 +509,7 @@
                                         });
                                     }
                                 } catch (e) {
-                                    console.error(`Error scanning ${symbol} [${tf.name}]:`, e);
+                                    // Silent catch per symbol loop to avoid halting global scans
                                 }
                             }
                         }));
@@ -555,6 +589,12 @@
                             )}
                             <button onClick={fetchAndScan} disabled={loading}>
                                 {loading ? 'Scanning...' : 'Scan Now'}
+                            </button>
+                            <button 
+                                onClick={requestNotificationPermission} 
+                                style={{ background: notificationsEnabled ? '#00ffaa' : '#1a1f3a', color: notificationsEnabled ? '#0a0e27' : '#00ffaa' }}
+                            >
+                                {notificationsEnabled ? '🔔 Pop-ups Enabled' : '🔕 Enable Pop-up Alerts'}
                             </button>
                         </div>
                     </div>
