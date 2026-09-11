@@ -28,7 +28,7 @@
         }
 
         .container {
-            max-width: 1500px;
+            max-width: 1600px;
             margin: 0 auto;
         }
 
@@ -55,7 +55,7 @@
             padding: 16px;
             margin-bottom: 20px;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
             gap: 12px;
             align-items: end;
         }
@@ -236,6 +236,10 @@
             </select>
         </div>
         <div class="input-group">
+            <label>Min 24h Vol (USDT)</label>
+            <input type="number" id="min-vol" value="500000" step="100000" min="0" title="Filter out pairs with 24h volume below this value.">
+        </div>
+        <div class="input-group">
             <label>Max OB Age (Bars)</label>
             <input type="number" id="max-age" value="50" min="5" max="500" title="Only display order blocks created within the last X candles.">
         </div>
@@ -272,6 +276,7 @@
             <thead>
                 <tr>
                     <th>Symbol</th>
+                    <th>24h Volume</th>
                     <th>Type</th>
                     <th>Age</th>
                     <th>Zone Range (Top - Bot)</th>
@@ -286,7 +291,7 @@
             </thead>
             <tbody id="results-body">
                 <tr>
-                    <td colspan="11" style="text-align: center; color: var(--text-secondary); padding: 30px;">
+                    <td colspan="12" style="text-align: center; color: var(--text-secondary); padding: 30px;">
                         Set your parameters and click "Run Scanner" to scan Binance Futures markets.
                     </td>
                 </tr>
@@ -423,6 +428,22 @@
         }
     }
 
+    async function fetch24hVolumeMap() {
+        try {
+            const res = await fetch('https://fapi.binance.com/fapi/v1/ticker/24hr');
+            if (!res.ok) return {};
+            const data = await res.json();
+            let volMap = {};
+            data.forEach(item => {
+                volMap[item.symbol] = parseFloat(item.quoteVolume);
+            });
+            return volMap;
+        } catch (e) {
+            console.error("Failed to fetch 24h ticker info", e);
+            return {};
+        }
+    }
+
     async function fetchFuturesKlines(symbol, interval, limit = 500) {
         const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol.trim().toUpperCase()}&interval=${interval}&limit=${limit}`;
         const response = await fetch(url);
@@ -440,7 +461,7 @@
         }));
     }
 
-    async function analyzeSymbol(symbol, timeframe, swingLen, dispMult, tpMult, slMult, maxAge) {
+    async function analyzeSymbol(symbol, timeframe, swingLen, dispMult, tpMult, slMult, maxAge, vol24h) {
         const klines = await fetchFuturesKlines(symbol, timeframe, 500);
         const atr = TechnicalAnalysis.calcATR(klines, 14);
         const { ph, pl } = TechnicalAnalysis.findPivots(klines, swingLen);
@@ -491,6 +512,7 @@
 
                             activeOBs.push({
                                 symbol,
+                                vol24h,
                                 isBull: false,
                                 top,
                                 bot,
@@ -538,6 +560,7 @@
 
                             activeOBs.push({
                                 symbol,
+                                vol24h,
                                 isBull: true,
                                 top,
                                 bot,
@@ -583,6 +606,13 @@
         }).filter(ob => ob.ageInBars <= maxAge);
     }
 
+    function formatVol(vol) {
+        if (!vol) return "$0";
+        if (vol >= 1000000) return `$${(vol / 1000000).toFixed(2)}M`;
+        if (vol >= 1000) return `$${(vol / 1000).toFixed(1)}K`;
+        return `$${vol.toFixed(0)}`;
+    }
+
     async function runScanner() {
         const btn = document.getElementById('btn-run');
         const statusLbl = document.getElementById('scan-status');
@@ -597,13 +627,26 @@
         pbarContainer.style.display = "block";
         pbarFill.style.width = "0%";
 
-        const symbols = document.getElementById('symbols-input').value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        const minVol = parseFloat(document.getElementById('min-vol').value) || 0;
         const timeframe = document.getElementById('tf-select').value;
         const swingLen = parseInt(document.getElementById('swing-len').value);
         const dispMult = parseFloat(document.getElementById('disp-mult').value);
         const tpMult = parseFloat(document.getElementById('tp-mult').value);
         const slMult = parseFloat(document.getElementById('sl-mult').value);
         const maxAge = parseInt(document.getElementById('max-age').value);
+
+        statusLbl.innerText = "Fetching 24h market volume stats...";
+        const volMap = await fetch24hVolumeMap();
+
+        let rawSymbols = document.getElementById('symbols-input').value.split(',').map(s => s.trim().toUpperCase()).filter(s => s.length > 0);
+        
+        // Apply Volume Filter
+        let symbols = rawSymbols.filter(s => {
+            const v = volMap[s];
+            return v !== undefined ? v >= minVol : true;
+        });
+
+        statusLbl.innerText = `Filtered ${rawSymbols.length - symbols.length} illiquid markets (< $${(minVol/1000).toFixed(0)}k vol). Scanning ${symbols.length} pairs...`;
 
         let allSignals = [];
         let batchSize = 10;
@@ -612,7 +655,7 @@
         for (let i = 0; i < symbols.length; i += batchSize) {
             const chunk = symbols.slice(i, i + batchSize);
             const promises = chunk.map(symbol => 
-                analyzeSymbol(symbol, timeframe, swingLen, dispMult, tpMult, slMult, maxAge)
+                analyzeSymbol(symbol, timeframe, swingLen, dispMult, tpMult, slMult, maxAge, volMap[symbol] || 0)
                     .catch(() => [])
             );
 
@@ -645,6 +688,7 @@
 
             tr.innerHTML = `
                 <td><strong>${sig.symbol}</strong></td>
+                <td><strong style="color:var(--text-secondary);">${formatVol(sig.vol24h)}</strong></td>
                 <td>${typeBadge}</td>
                 <td><strong>${sig.ageInBars}</strong> bars ago</td>
                 <td>${sig.top.toFixed(4)} - ${sig.bot.toFixed(4)}</td>
@@ -669,8 +713,8 @@
         if (allSignals.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="11" style="text-align: center; color: var(--text-secondary); padding: 30px;">
-                        No order blocks found within the last ${maxAge} bars matching your displacement criteria. Try increasing "Max OB Age".
+                    <td colspan="12" style="text-align: center; color: var(--text-secondary); padding: 30px;">
+                        No order blocks found matching criteria. Try lowering displacement/vol filter or increasing "Max OB Age".
                     </td>
                 </tr>
             `;
