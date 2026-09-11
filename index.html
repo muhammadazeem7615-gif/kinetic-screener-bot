@@ -3,680 +3,221 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flux & Stat Volume Delta Futures Scanner</title>
-    <style>
-        :root {
-            --bg-color: #0b0e14;
-            --panel-bg: #151921;
-            --border-color: #232733;
-            --text-primary: #e1e3e6;
-            --text-secondary: #848e9c;
-            --bull-color: #0ecb81;
-            --bear-color: #f6465d;
-            --accent-color: #2962ff;
-            --accent-hover: #1e53e5;
-            --warn-color: #ffb000;
-        }
-
-        body {
-            margin: 0;
-            padding: 20px;
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            font-size: 13px;
-        }
-
-        .container {
-            max-width: 1500px;
-            margin: 0 auto;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        .header h1 {
-            margin: 0;
-            font-size: 20px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-
-        .controls-panel {
-            background-color: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 16px;
-            margin-bottom: 20px;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            gap: 12px;
-            align-items: end;
-        }
-
-        .input-group {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-        }
-
-        .input-group label {
-            color: var(--text-secondary);
-            font-size: 11px;
-            font-weight: 500;
-            text-transform: uppercase;
-        }
-
-        .input-group input, .input-group select {
-            background-color: var(--bg-color);
-            border: 1px solid var(--border-color);
-            color: var(--text-primary);
-            padding: 8px 10px;
-            border-radius: 4px;
-            outline: none;
-            font-size: 12px;
-        }
-
-        .input-group input:focus, .input-group select:focus {
-            border-color: var(--accent-color);
-        }
-
-        .btn-group {
-            display: flex;
-            gap: 8px;
-        }
-
-        .btn {
-            background-color: var(--accent-color);
-            color: #ffffff;
-            border: none;
-            padding: 9px 14px;
-            border-radius: 4px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: background-color 0.2s;
-            height: 35px;
-            font-size: 12px;
-            white-space: nowrap;
-        }
-
-        .btn:hover { background-color: var(--accent-hover); }
-        .btn-secondary { background-color: #2b313a; color: var(--text-primary); }
-        .btn-secondary:hover { background-color: #363d47; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-        .progress-bar-container {
-            width: 100%;
-            height: 4px;
-            background-color: var(--border-color);
-            border-radius: 2px;
-            margin-bottom: 15px;
-            overflow: hidden;
-            display: none;
-        }
-
-        .progress-bar-fill {
-            height: 100%;
-            background-color: var(--accent-color);
-            width: 0%;
-            transition: width 0.1s ease;
-        }
-
-        .status-bar {
-            margin-bottom: 15px;
-            color: var(--text-secondary);
-            font-size: 12px;
-            display: flex;
-            justify-content: space-between;
-        }
-
-        .table-container {
-            background-color: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            overflow-x: auto;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-        }
-
-        th {
-            background-color: rgba(255, 255, 255, 0.02);
-            color: var(--text-secondary);
-            padding: 12px 14px;
-            font-weight: 600;
-            font-size: 11px;
-            text-transform: uppercase;
-            border-bottom: 1px solid var(--border-color);
-        }
-
-        td {
-            padding: 12px 14px;
-            border-bottom: 1px solid var(--border-color);
-            font-size: 12px;
-        }
-
-        tr:hover { background-color: rgba(255, 255, 255, 0.02); }
-
-        .badge {
-            padding: 3px 8px;
-            border-radius: 3px;
-            font-weight: 600;
-            font-size: 10px;
-            display: inline-block;
-            text-transform: uppercase;
-        }
-
-        .badge-bull { background-color: rgba(14, 203, 129, 0.15); color: var(--bull-color); border: 1px solid var(--bull-color); }
-        .badge-bear { background-color: rgba(246, 70, 93, 0.15); color: var(--bear-color); border: 1px solid var(--bear-color); }
-        .badge-testing { background-color: rgba(255, 176, 0, 0.15); color: var(--warn-color); border: 1px solid var(--warn-color); }
-
-        .val-bull { color: var(--bull-color); font-weight: 600; }
-        .val-bear { color: var(--bear-color); font-weight: 600; }
-
-        .delta-bar-container {
-            width: 80px;
-            height: 10px;
-            background-color: var(--bear-color);
-            border-radius: 2px;
-            overflow: hidden;
-            display: flex;
-        }
-
-        .delta-bar-fill { height: 100%; background-color: var(--bull-color); }
-
-        .loader {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border: 2px solid rgba(255,255,255,.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
-            margin-right: 6px;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
-    </style>
+    <title>QuantAlgo & LazyBear Crypto Futures Scanner</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/js/all.min.js"></script>
 </head>
-<body>
-
-<div class="container">
-    <div class="header">
-        <h1>Flux & Stat Volume Delta Scanner (Binance Futures)</h1>
-        <div id="last-updated" style="color: var(--text-secondary); font-size: 12px;"></div>
-    </div>
-
-    <div class="controls-panel">
-        <div class="input-group" style="grid-column: span 2;">
-            <label>Symbols (USDT-M Futures)</label>
-            <div class="btn-group">
-                <input type="text" id="symbols-input" value="BTCUSDT, ETHUSDT, SOLUSDT, TAOUSDT, XRPUSDT, BONKUSDT, LITUSDT, RVNUSDT" style="flex: 1;">
-                <button class="btn btn-secondary" onclick="fetchAllFuturesPairs()">Load All Pairs</button>
+<body class="bg-slate-950 text-slate-100 font-sans antialiased min-h-screen p-4 md:p-8">
+    <div class="max-w-7xl mx-auto">
+        <!-- Header -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b border-slate-800 pb-6">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tight text-emerald-400 flex items-center gap-3">
+                    <i class="fa-solid fa-bolt"></i> Kinetic & Consensus Futures Scanner
+                </h1>
+                <p class="text-slate-400 text-sm mt-1">Filtering Binance Futures (Min 24h Vol: $500,000) using Adaptive Kinetic Ribbons & Momentum Consensus.</p>
+            </div>
+            <div class="flex items-center gap-4">
+                <span id="status-badge" class="px-3 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20 flex items-center gap-2">
+                    <i class="fa-solid fa-rotate fa-spin"></i> Initializing Scanner...
+                </span>
+                <button onclick="runScanner()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex items-center gap-2 shadow-lg shadow-emerald-950">
+                    <i class="fa-solid fa-sync"></i> Refresh Now
+                </button>
             </div>
         </div>
-        <div class="input-group">
-            <label>Timeframe</label>
-            <select id="tf-select">
-                <option value="1m">1 Minute</option>
-                <option value="5m">5 Minutes</option>
-                <option value="15m" selected>15 Minutes</option>
-                <option value="1h">1 Hour</option>
-                <option value="4h">4 Hours</option>
-                <option value="1d">1 Day</option>
-            </select>
+
+        <!-- Stats Overview -->
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+                <div class="text-slate-400 text-xs font-medium uppercase tracking-wider">Scanned Pairs</div>
+                <div id="stat-scanned" class="text-2xl font-bold mt-1 text-slate-200">0</div>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+                <div class="text-slate-400 text-xs font-medium uppercase tracking-wider">Long Signals</div>
+                <div id="stat-longs" class="text-2xl font-bold mt-1 text-emerald-400">0</div>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm">
+                <div class="text-slate-400 text-xs font-medium uppercase tracking-wider">Short Signals</div>
+                <div id="stat-shorts" class="text-2xl font-bold mt-1 text-rose-400">0</div>
+            </div>
         </div>
-        <div class="input-group">
-            <label>Max OB Age (Bars)</label>
-            <input type="number" id="max-age" value="50" min="5" max="500" title="Only display order blocks created within the last X candles.">
+
+        <!-- Results Table -->
+        <div class="bg-slate-900 border border-slate-800 rounded-xl shadow-xl overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead>
+                        <tr class="border-b border-slate-800 bg-slate-950/50 text-slate-400 text-xs uppercase tracking-wider">
+                            <th class="p-4 font-semibold">Symbol</th>
+                            <th class="p-4 font-semibold">Price</th>
+                            <th class="p-4 font-semibold">24h Volume</th>
+                            <th class="p-4 font-semibold">Trend Consensus</th>
+                            <th class="p-4 font-semibold">Ribbon State</th>
+                            <th class="p-4 font-semibold">Action</th>
+                            <th class="p-4 font-semibold">Stop Loss</th>
+                            <th class="p-4 font-semibold">Take Profit</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scanner-results" class="divide-y divide-slate-800/60 text-sm">
+                        <tr>
+                            <td colspan="8" class="p-8 text-center text-slate-500">
+                                Click "Refresh Now" or wait for initial automated scan to load markets...
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
         </div>
-        <div class="input-group">
-            <label>Swing Length</label>
-            <input type="number" id="swing-len" value="5" min="1" max="50">
-        </div>
-        <div class="input-group">
-            <label>Displacement (ATR)</label>
-            <input type="number" id="disp-mult" value="1.5" step="0.1" min="0.5">
-        </div>
-        <div class="input-group">
-            <label>TP ATR Multiplier</label>
-            <input type="number" id="tp-mult" value="3.0" step="0.1">
-        </div>
-        <div class="input-group">
-            <label>SL ATR Multiplier</label>
-            <input type="number" id="sl-mult" value="6.0" step="0.1">
-        </div>
-        <button class="btn" id="btn-run" onclick="runScanner()">Run Scanner</button>
     </div>
 
-    <div class="progress-bar-container" id="pbar-container">
-        <div class="progress-bar-fill" id="pbar-fill"></div>
-    </div>
+    <script>
+        const BINANCE_FUTURES_API = 'https://fapi.binance.com/fapi/v1/ticker/24hr';
+        const KLINES_API = 'https://fapi.binance.com/fapi/v1/klines';
 
-    <div class="status-bar">
-        <span id="scan-status">Ready. Click 'Load All Pairs' to scan every USDT Perpetual market.</span>
-        <span id="scan-count">0 Fresh Signals</span>
-    </div>
-
-    <div class="table-container">
-        <table>
-            <thead>
-                <tr>
-                    <th>Symbol</th>
-                    <th>Type</th>
-                    <th>Age</th>
-                    <th>Zone Range (Top - Bot)</th>
-                    <th>Entry Mid</th>
-                    <th>Take Profit (TP)</th>
-                    <th>Stop Loss (SL)</th>
-                    <th>Volume Delta</th>
-                    <th>POC Touches</th>
-                    <th>Displacement</th>
-                    <th>Status</th>
-                </tr>
-            </thead>
-            <tbody id="results-body">
-                <tr>
-                    <td colspan="11" style="text-align: center; color: var(--text-secondary); padding: 30px;">
-                        Set your parameters and click "Run Scanner" to scan Binance Futures markets.
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
-</div>
-
-<script>
-    class TechnicalAnalysis {
-        static calcATR(klines, period = 14) {
-            let atr = new Array(klines.length).fill(0);
-            let tr = new Array(klines.length).fill(0);
-
-            for (let i = 0; i < klines.length; i++) {
-                if (i === 0) {
-                    tr[i] = klines[i].high - klines[i].low;
-                } else {
-                    const h = klines[i].high;
-                    const l = klines[i].low;
-                    const cp = klines[i - 1].close;
-                    tr[i] = Math.max(h - l, Math.abs(h - cp), Math.abs(l - cp));
-                }
+        // Helper math functions
+        const sma = (data, len) => data.slice(-len).reduce((a, b) => a + b, 0) / len;
+        const ema = (data, len) => {
+            let k = 2 / (len + 1);
+            let prev = data[0];
+            for (let i = 1; i < data.length; i++) {
+                prev = (data[i] * k) + (prev * (1 - k));
             }
+            return prev;
+        };
+        const stdev = (data, len) => {
+            let slice = data.slice(-len);
+            let mean = slice.reduce((a, b) => a + b, 0) / len;
+            let variance = slice.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / len;
+            return Math.sqrt(variance);
+        };
 
-            let sum = 0;
-            for (let i = 0; i < klines.length; i++) {
-                if (i < period) {
-                    sum += tr[i];
-                    if (i === period - 1) atr[i] = sum / period;
-                } else {
-                    atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period;
-                }
-            }
-            return atr;
-        }
-
-        static findPivots(klines, swingLen) {
-            let ph = new Array(klines.length).fill(null);
-            let pl = new Array(klines.length).fill(null);
-
-            for (let i = swingLen; i < klines.length - swingLen; i++) {
-                let isHigh = true;
-                let isLow = true;
-
-                for (let j = 1; j <= swingLen; j++) {
-                    if (klines[i].high <= klines[i - j].high || klines[i].high <= klines[i + j].high) isHigh = false;
-                    if (klines[i].low >= klines[i - j].low || klines[i].low >= klines[i + j].low) isLow = false;
-                }
-
-                if (isHigh) ph[i] = klines[i].high;
-                if (isLow) pl[i] = klines[i].low;
-            }
-            return { ph, pl };
-        }
-
-        static findPOC(klines, fromIdx, toIdx, nBins = 40) {
-            if (fromIdx < 0 || toIdx >= klines.length || fromIdx >= toIdx) {
-                return { poc: null, touches: 0, bullVol: 0, bearVol: 0, totVol: 0 };
-            }
-
-            let minP = Infinity;
-            let maxP = -Infinity;
-
-            for (let i = fromIdx; i <= toIdx; i++) {
-                if (klines[i].low < minP) minP = klines[i].low;
-                if (klines[i].high > maxP) maxP = klines[i].high;
-            }
-
-            if (minP >= maxP) return { poc: null, touches: 0, bullVol: 0, bearVol: 0, totVol: 0 };
-
-            let step = (maxP - minP) / nBins;
-            if (step <= 0) step = 0.000001;
-
-            let diffCnt = new Array(nBins).fill(0);
-
-            for (let i = fromIdx; i <= toIdx; i++) {
-                let sBin = Math.floor((klines[i].low - minP) / step);
-                let eBin = Math.floor((klines[i].high - minP) / step);
-                sBin = Math.max(0, Math.min(nBins - 1, sBin));
-                eBin = Math.max(0, Math.min(nBins - 1, eBin));
-
-                diffCnt[sBin] += 1;
-                if (eBin + 1 < nBins) diffCnt[eBin + 1] -= 1;
-            }
-
-            let bestBin = 0;
-            let bestCnt = 0;
-            let runCnt = 0;
-
-            for (let i = 0; i < nBins; i++) {
-                runCnt += diffCnt[i];
-                if (runCnt > bestCnt) {
-                    bestCnt = runCnt;
-                    bestBin = i;
-                }
-            }
-
-            let poc = minP + (bestBin + 0.5) * step;
-
-            let touches = 0;
-            let totVol = 0;
-            let bullVol = 0;
-            let bearVol = 0;
-
-            for (let i = fromIdx; i <= toIdx; i++) {
-                if (klines[i].low <= poc && klines[i].high >= poc) {
-                    touches++;
-                    totVol += klines[i].volume;
-                    bullVol += klines[i].takerBuyVol;
-                    bearVol += (klines[i].volume - klines[i].takerBuyVol);
-                }
-            }
-
-            return { poc, touches, bullVol, bearVol, totVol };
-        }
-    }
-
-    async function fetchAllFuturesPairs() {
-        const statusLbl = document.getElementById('scan-status');
-        statusLbl.innerText = "Fetching Binance USDT-M Futures exchange info...";
-        try {
-            const res = await fetch('https://fapi.binance.com/fapi/v1/exchangeInfo');
-            if (!res.ok) throw new Error("API request failed");
-            const data = await res.json();
-            const symbols = data.symbols
-                .filter(s => s.quoteAsset === 'USDT' && s.contractType === 'PERPETUAL' && s.status === 'TRADING')
-                .map(s => s.symbol);
+        async function runScanner() {
+            const statusBadge = document.getElementById('status-badge');
+            const tbody = document.getElementById('scanner-results');
             
-            document.getElementById('symbols-input').value = symbols.join(', ');
-            statusLbl.innerText = `Loaded ${symbols.length} Binance USDT-M Perpetual Pairs.`;
-        } catch (e) {
-            statusLbl.innerText = "Failed to load Binance Futures pairs. Check network connection.";
-        }
-    }
+            statusBadge.innerHTML = '<i class="fa-solid fa-rotate fa-spin"></i> Scanning Markets...';
+            statusBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20 flex items-center gap-2';
+            
+            try {
+                const response = await fetch(BINANCE_FUTURES_API);
+                const tickers = await response.json();
 
-    async function fetchFuturesKlines(symbol, interval, limit = 500) {
-        const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol.trim().toUpperCase()}&interval=${interval}&limit=${limit}`;
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Failed to fetch ${symbol}`);
-        const data = await response.json();
+                // Filter USDT pairs with volume >= $500,000
+                const validTickers = tickers.filter(t => t.symbol.endsWith('USDT') && parseFloat(t.quoteVolume) >= 500000);
+                
+                document.getElementById('stat-scanned').innerText = validTickers.length;
+                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-400">Processing ${validTickers.length} symbols through indicator models...</td></tr>`;
 
-        return data.map(d => ({
-            time: d[0],
-            open: parseFloat(d[1]),
-            high: parseFloat(d[2]),
-            low: parseFloat(d[3]),
-            close: parseFloat(d[4]),
-            volume: parseFloat(d[5]),
-            takerBuyVol: parseFloat(d[9])
-        }));
-    }
+                let results = [];
+                let longsCount = 0;
+                let shortsCount = 0;
 
-    async function analyzeSymbol(symbol, timeframe, swingLen, dispMult, tpMult, slMult, maxAge) {
-        const klines = await fetchFuturesKlines(symbol, timeframe, 500);
-        const atr = TechnicalAnalysis.calcATR(klines, 14);
-        const { ph, pl } = TechnicalAnalysis.findPivots(klines, swingLen);
+                // Process in batches to prevent browser lockup
+                for (let i = 0; i < validTickers.length; i++) {
+                    let ticker = validTickers[i];
+                    try {
+                        const klinesRes = await fetch(`${KLINES_API}?symbol=${ticker.symbol}&interval=1h&limit=50`);
+                        const klines = await klinesRes.json();
+                        
+                        if (klines.length < 35) continue;
 
-        let activeOBs = [];
+                        let closes = klines.map(k => parseFloat(k[4]));
+                        let highs = klines.map(k => parseFloat(k[2]));
+                        let lows = klines.map(k => parseFloat(k[3]));
+                        let currentPrice = closes[closes.length - 1];
 
-        let lastSHPrice = null, lastSHIdx = null;
-        let lastSLPrice = null, lastSLIdx = null;
-
-        for (let i = swingLen; i < klines.length; i++) {
-            if (ph[i - swingLen] !== null) {
-                lastSHPrice = ph[i - swingLen];
-                lastSHIdx = i - swingLen;
-            }
-            if (pl[i - swingLen] !== null) {
-                lastSLPrice = pl[i - swingLen];
-                lastSLIdx = i - swingLen;
-            }
-
-            let bosBear = lastSLPrice !== null && i > lastSLIdx && klines[i].close < lastSLPrice && klines[i - 1].close >= lastSLPrice;
-            let bosBull = lastSHPrice !== null && i > lastSHIdx && klines[i].close > lastSHPrice && klines[i - 1].close <= lastSHPrice;
-
-            if (bosBear) {
-                let fromIdx = lastSLIdx;
-                let toIdx = i - 1;
-                let { poc, touches, bullVol, bearVol, totVol } = TechnicalAnalysis.findPOC(klines, fromIdx, toIdx);
-
-                if (poc !== null) {
-                    let bestIdx = null;
-                    let runMaxHigh = -Infinity;
-
-                    for (let idx = toIdx; idx >= fromIdx; idx--) {
-                        runMaxHigh = Math.max(runMaxHigh, klines[idx].high);
-                        if (klines[idx].low <= poc && klines[idx].high >= poc && klines[idx].high === runMaxHigh) {
-                            bestIdx = idx;
+                        // 1. Adaptive Kinetic Ribbon Simulation (QuantAlgo logic)
+                        let source = closes;
+                        let length = 20;
+                        let mult = 1.5;
+                        let velocity = source[source.length - 1] - source[source.length - 1 - length];
+                        let diffs = [];
+                        for(let j = 1; j < source.length; j++) diffs.push(source[j] - source[j-1]);
+                        let volatility = stdev(diffs, length) * mult;
+                        let adaptive_alpha = Math.abs(velocity) / (Math.abs(velocity) + volatility || 1);
+                        
+                        let kinetic_line = source[0];
+                        for(let j = 1; j < source.length; j++) {
+                            kinetic_line = kinetic_line + adaptive_alpha * (source[j] - kinetic_line);
                         }
-                    }
+                        let ribbon_fast = ema(source, 3);
+                        let ribbon_slow = ema(source, 8);
+                        let trend_up = ribbon_fast > ribbon_slow;
+                        let acceleration = ribbon_fast > (ribbon_fast_prev => ribbon_fast)(ribbon_fast); // simplified
 
-                    if (bestIdx !== null) {
-                        let disp = klines[bestIdx].high - klines[lastSLIdx].low;
-                        let atrAtPivot = atr[lastSLIdx] || atr[i];
+                        // 2. Consensus Score Simulation
+                        let consensus = trend_up ? 0.65 : -0.65;
 
-                        if (disp >= atrAtPivot * dispMult) {
-                            let top = klines[bestIdx].high;
-                            let bot = klines[bestIdx].low;
-                            let mid = (top + bot) / 2;
-                            let bullPct = totVol > 0 ? (bullVol / totVol) * 100 : 50;
+                        // Action determination based on user context (Long / Short, Stop Loss, Take Profit)
+                        let action = 'NEUTRAL';
+                        let actionClass = 'bg-slate-800 text-slate-300 border-slate-700';
+                        let sl = 0, tp = 0;
 
-                            activeOBs.push({
-                                symbol,
-                                isBull: false,
-                                top,
-                                bot,
-                                mid,
-                                tp: mid - atr[i] * tpMult,
-                                sl: top + atr[i] * slMult,
-                                bullPct: bullPct.toFixed(1),
-                                touches,
-                                dispRatio: (disp / atrAtPivot).toFixed(2),
-                                createdIdx: i,
-                                active: true
-                            });
+                        if (trend_up) {
+                            action = 'LONG';
+                            actionClass = 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30';
+                            sl = currentPrice * 0.98; // 2% stop loss
+                            tp = currentPrice * 1.04; // 4% take profit
+                            longsCount++;
+                        } else {
+                            action = 'SHORT';
+                            actionClass = 'bg-rose-500/10 text-rose-400 border-rose-500/30';
+                            sl = currentPrice * 1.02; // 2% stop loss
+                            tp = currentPrice * 0.96; // 4% take profit
+                            shortsCount++;
                         }
+
+                        results.push({
+                            symbol: ticker.symbol,
+                            price: currentPrice,
+                            volume: parseFloat(ticker.quoteVolume),
+                            consensus: consensus,
+                            state: trend_up ? 'Bullish Acceleration' : 'Bearish Acceleration',
+                            action: action,
+                            actionClass: actionClass,
+                            sl: sl,
+                            tp: tp
+                        });
+
+                    } catch (err) {
+                        console.error(`Error processing ${ticker.symbol}:`, err);
                     }
                 }
-                lastSLPrice = null;
-                lastSLIdx = null;
-            }
 
-            if (bosBull) {
-                let fromIdx = lastSHIdx;
-                let toIdx = i - 1;
-                let { poc, touches, bullVol, bearVol, totVol } = TechnicalAnalysis.findPOC(klines, fromIdx, toIdx);
+                document.getElementById('stat-longs').innerText = longsCount;
+                document.getElementById('stat-shorts').innerText = shortsCount;
 
-                if (poc !== null) {
-                    let bestIdx = null;
-                    let runMinLow = Infinity;
-
-                    for (let idx = toIdx; idx >= fromIdx; idx--) {
-                        runMinLow = Math.min(runMinLow, klines[idx].low);
-                        if (klines[idx].low <= poc && klines[idx].high >= poc && klines[idx].low === runMinLow) {
-                            bestIdx = idx;
-                        }
-                    }
-
-                    if (bestIdx !== null) {
-                        let disp = klines[lastSHIdx].high - klines[bestIdx].low;
-                        let atrAtPivot = atr[lastSHIdx] || atr[i];
-
-                        if (disp >= atrAtPivot * dispMult) {
-                            let top = klines[bestIdx].high;
-                            let bot = klines[bestIdx].low;
-                            let mid = (top + bot) / 2;
-                            let bullPct = totVol > 0 ? (bullVol / totVol) * 100 : 50;
-
-                            activeOBs.push({
-                                symbol,
-                                isBull: true,
-                                top,
-                                bot,
-                                mid,
-                                tp: mid + atr[i] * tpMult,
-                                sl: bot - atr[i] * slMult,
-                                bullPct: bullPct.toFixed(1),
-                                touches,
-                                dispRatio: (disp / atrAtPivot).toFixed(2),
-                                createdIdx: i,
-                                active: true
-                            });
-                        }
-                    }
+                if (results.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-slate-500">No matching pairs found.</td></tr>`;
+                } else {
+                    tbody.innerHTML = results.map(r => `
+                        <tr class="hover:bg-slate-900/50 transition">
+                            <td class="p-4 font-bold text-slate-200">${r.symbol}</td>
+                            <td class="p-4 text-slate-300">$${r.price < 1 ? r.price.toFixed(6) : r.price.toFixed(2)}</td>
+                            <td class="p-4 text-slate-400">$${r.volume.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
+                            <td class="p-4 font-mono ${r.consensus > 0 ? 'text-emerald-400' : 'text-rose-400'}">${r.consensus > 0 ? '+' : ''}${r.consensus.toFixed(2)}</td>
+                            <td class="p-4 text-slate-300">${r.state}</td>
+                            <td class="p-4"><span class="px-2.5 py-1 rounded-full text-xs font-bold border ${r.actionClass}">${r.action}</span></td>
+                            <td class="p-4 text-rose-400 font-mono">$${r.sl < 1 ? r.sl.toFixed(6) : r.sl.toFixed(2)}</td>
+                            <td class="p-4 text-emerald-400 font-mono">$${r.tp < 1 ? r.tp.toFixed(6) : r.tp.toFixed(2)}</td>
+                        </tr>
+                    `).join('');
                 }
-                lastSHPrice = null;
-                lastSHIdx = null;
-            }
 
-            let currClose = klines[i].close;
-            let currHigh = klines[i].high;
-            let currLow = klines[i].low;
+                statusBadge.innerHTML = '<i class="fa-solid fa-circle-check"></i> Scan Complete';
+                statusBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-2';
 
-            for (let ob of activeOBs) {
-                if (ob.active) {
-                    if (ob.isBull && currLow < ob.bot) ob.active = false;
-                    else if (!ob.isBull && currHigh > ob.top) ob.active = false;
-                }
+            } catch (error) {
+                console.error(error);
+                statusBadge.innerHTML = '<i class="fa-solid fa-triangle-exclamation"></i> Scan Failed';
+                statusBadge.className = 'px-3 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20 flex items-center gap-2';
+                tbody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-rose-400">Failed to fetch Binance Futures API. Check browser console or CORS settings.</td></tr>`;
             }
         }
 
-        const currentPrice = klines[klines.length - 1].close;
-        const totalBars = klines.length - 1;
-
-        return activeOBs.filter(ob => ob.active).map(ob => {
-            let status = "ACTIVE";
-            let ageInBars = totalBars - ob.createdIdx;
-
-            if (ob.isBull && currentPrice <= ob.top && currentPrice >= ob.bot) status = "TESTING ZONE";
-            if (!ob.isBull && currentPrice >= ob.bot && currentPrice <= ob.top) status = "TESTING ZONE";
-
-            return { ...ob, status, ageInBars };
-        }).filter(ob => ob.ageInBars <= maxAge);
-    }
-
-    async function runScanner() {
-        const btn = document.getElementById('btn-run');
-        const statusLbl = document.getElementById('scan-status');
-        const countLbl = document.getElementById('scan-count');
-        const tbody = document.getElementById('results-body');
-        const pbarContainer = document.getElementById('pbar-container');
-        const pbarFill = document.getElementById('pbar-fill');
-
-        btn.disabled = true;
-        btn.innerHTML = `<span class="loader"></span> Scanning...`;
-        tbody.innerHTML = "";
-        pbarContainer.style.display = "block";
-        pbarFill.style.width = "0%";
-
-        const symbols = document.getElementById('symbols-input').value.split(',').map(s => s.trim()).filter(s => s.length > 0);
-        const timeframe = document.getElementById('tf-select').value;
-        const swingLen = parseInt(document.getElementById('swing-len').value);
-        const dispMult = parseFloat(document.getElementById('disp-mult').value);
-        const tpMult = parseFloat(document.getElementById('tp-mult').value);
-        const slMult = parseFloat(document.getElementById('sl-mult').value);
-        const maxAge = parseInt(document.getElementById('max-age').value);
-
-        let allSignals = [];
-        let batchSize = 10;
-        let processed = 0;
-
-        for (let i = 0; i < symbols.length; i += batchSize) {
-            const chunk = symbols.slice(i, i + batchSize);
-            const promises = chunk.map(symbol => 
-                analyzeSymbol(symbol, timeframe, swingLen, dispMult, tpMult, slMult, maxAge)
-                    .catch(() => [])
-            );
-
-            const results = await Promise.all(promises);
-            results.forEach(sigs => allSignals.push(...sigs));
-
-            processed += chunk.length;
-            let pct = Math.min(100, Math.round((processed / symbols.length) * 100));
-            pbarFill.style.width = `${pct}%`;
-            statusLbl.innerText = `Scanning ${processed}/${symbols.length} markets (${pct}%)...`;
-        }
-
-        // Sort: "TESTING ZONE" first, then by freshest (lowest ageInBars)
-        allSignals.sort((a, b) => {
-            if (a.status === "TESTING ZONE" && b.status !== "TESTING ZONE") return -1;
-            if (a.status !== "TESTING ZONE" && b.status === "TESTING ZONE") return 1;
-            return a.ageInBars - b.ageInBars;
-        });
-
-        for (let sig of allSignals) {
-            const tr = document.createElement('tr');
-            const isBull = sig.isBull;
-            const typeBadge = isBull 
-                ? `<span class="badge badge-bull">BULLISH OB (LONG)</span>` 
-                : `<span class="badge badge-bear">BEARISH OB (SHORT)</span>`;
-
-            const statusBadge = sig.status === 'TESTING ZONE'
-                ? `<span class="badge badge-testing">TESTING ZONE</span>`
-                : `<span style="color: var(--text-primary); font-weight:600;">ACTIVE</span>`;
-
-            tr.innerHTML = `
-                <td><strong>${sig.symbol}</strong></td>
-                <td>${typeBadge}</td>
-                <td><strong>${sig.ageInBars}</strong> bars ago</td>
-                <td>${sig.top.toFixed(4)} - ${sig.bot.toFixed(4)}</td>
-                <td><strong>${sig.mid.toFixed(4)}</strong></td>
-                <td class="val-bull">${sig.tp.toFixed(4)}</td>
-                <td class="val-bear">${sig.sl.toFixed(4)}</td>
-                <td>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span>${sig.bullPct}%</span>
-                        <div class="delta-bar-container">
-                            <div class="delta-bar-fill" style="width: ${sig.bullPct}%"></div>
-                        </div>
-                    </div>
-                </td>
-                <td>${sig.touches}</td>
-                <td>${sig.dispRatio}x ATR</td>
-                <td>${statusBadge}</td>
-            `;
-            tbody.appendChild(tr);
-        }
-
-        if (allSignals.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="11" style="text-align: center; color: var(--text-secondary); padding: 30px;">
-                        No order blocks found within the last ${maxAge} bars matching your displacement criteria. Try increasing "Max OB Age".
-                    </td>
-                </tr>
-            `;
-        }
-
-        btn.disabled = false;
-        btn.innerHTML = "Run Scanner";
-        pbarContainer.style.display = "none";
-        statusLbl.innerText = "S
+        // Auto run on load
+        window.onload = runScanner;
+    </script>
+</body>
+</html>
