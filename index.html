@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flux & Stat Volume Delta Order Block Scanner</title>
+    <title>Flux & Stat Volume Delta Futures Scanner</title>
     <style>
         :root {
             --bg-color: #0b0e14;
@@ -15,6 +15,7 @@
             --bear-color: #f6465d;
             --accent-color: #2962ff;
             --accent-hover: #1e53e5;
+            --warn-color: #ffb000;
         }
 
         body {
@@ -27,7 +28,7 @@
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1500px;
             margin: 0 auto;
         }
 
@@ -54,8 +55,8 @@
             padding: 16px;
             margin-bottom: 20px;
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 15px;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 12px;
             align-items: end;
         }
 
@@ -86,20 +87,45 @@
             border-color: var(--accent-color);
         }
 
-        .btn-scan {
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
             background-color: var(--accent-color);
             color: #ffffff;
             border: none;
-            padding: 9px 16px;
+            padding: 9px 14px;
             border-radius: 4px;
             font-weight: 600;
             cursor: pointer;
             transition: background-color 0.2s;
             height: 35px;
+            font-size: 12px;
+            white-space: nowrap;
         }
 
-        .btn-scan:hover {
-            background-color: var(--accent-hover);
+        .btn:hover { background-color: var(--accent-hover); }
+        .btn-secondary { background-color: #2b313a; color: var(--text-primary); }
+        .btn-secondary:hover { background-color: #363d47; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 4px;
+            background-color: var(--border-color);
+            border-radius: 2px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background-color: var(--accent-color);
+            width: 0%;
+            transition: width 0.1s ease;
         }
 
         .status-bar {
@@ -139,9 +165,7 @@
             font-size: 12px;
         }
 
-        tr:hover {
-            background-color: rgba(255, 255, 255, 0.02);
-        }
+        tr:hover { background-color: rgba(255, 255, 255, 0.02); }
 
         .badge {
             padding: 3px 8px;
@@ -152,34 +176,23 @@
             text-transform: uppercase;
         }
 
-        .badge-bull {
-            background-color: rgba(14, 203, 129, 0.15);
-            color: var(--bull-color);
-            border: 1px solid var(--bull-color);
-        }
-
-        .badge-bear {
-            background-color: rgba(246, 70, 93, 0.15);
-            color: var(--bear-color);
-            border: 1px solid var(--bear-color);
-        }
+        .badge-bull { background-color: rgba(14, 203, 129, 0.15); color: var(--bull-color); border: 1px solid var(--bull-color); }
+        .badge-bear { background-color: rgba(246, 70, 93, 0.15); color: var(--bear-color); border: 1px solid var(--bear-color); }
+        .badge-testing { background-color: rgba(255, 176, 0, 0.15); color: var(--warn-color); border: 1px solid var(--warn-color); }
 
         .val-bull { color: var(--bull-color); font-weight: 600; }
         .val-bear { color: var(--bear-color); font-weight: 600; }
 
         .delta-bar-container {
-            width: 100px;
-            height: 12px;
+            width: 80px;
+            height: 10px;
             background-color: var(--bear-color);
             border-radius: 2px;
             overflow: hidden;
             display: flex;
         }
 
-        .delta-bar-fill {
-            height: 100%;
-            background-color: var(--bull-color);
-        }
+        .delta-bar-fill { height: 100%; background-color: var(--bull-color); }
 
         .loader {
             display: inline-block;
@@ -189,26 +202,27 @@
             border-radius: 50%;
             border-top-color: #fff;
             animation: spin 1s ease-in-out infinite;
-            margin-right: 8px;
+            margin-right: 6px;
         }
 
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header">
-        <h1>Flux & Stat Volume Delta Order Block Scanner</h1>
+        <h1>Flux & Stat Volume Delta Scanner (Binance Futures)</h1>
         <div id="last-updated" style="color: var(--text-secondary); font-size: 12px;"></div>
     </div>
 
     <div class="controls-panel">
-        <div class="input-group">
-            <label>Symbols (Comma Separated)</label>
-            <input type="text" id="symbols-input" value="BTCUSDT, ETHUSDT, SOLUSDT, TAOUSDT, XRPUSDT, BONKUSDT, LITUSDT, RVNUSDT">
+        <div class="input-group" style="grid-column: span 2;">
+            <label>Symbols (USDT-M Futures)</label>
+            <div class="btn-group">
+                <input type="text" id="symbols-input" value="BTCUSDT, ETHUSDT, SOLUSDT, TAOUSDT, XRPUSDT, BONKUSDT, LITUSDT, RVNUSDT" style="flex: 1;">
+                <button class="btn btn-secondary" onclick="fetchAllFuturesPairs()">Load All Pairs</button>
+            </div>
         </div>
         <div class="input-group">
             <label>Timeframe</label>
@@ -222,11 +236,15 @@
             </select>
         </div>
         <div class="input-group">
-            <label>Flux Swing Length</label>
+            <label>Max OB Age (Bars)</label>
+            <input type="number" id="max-age" value="50" min="5" max="500" title="Only display order blocks created within the last X candles.">
+        </div>
+        <div class="input-group">
+            <label>Swing Length</label>
             <input type="number" id="swing-len" value="5" min="1" max="50">
         </div>
         <div class="input-group">
-            <label>Displacement (ATR Multi)</label>
+            <label>Displacement (ATR)</label>
             <input type="number" id="disp-mult" value="1.5" step="0.1" min="0.5">
         </div>
         <div class="input-group">
@@ -237,12 +255,16 @@
             <label>SL ATR Multiplier</label>
             <input type="number" id="sl-mult" value="6.0" step="0.1">
         </div>
-        <button class="btn-scan" id="btn-run" onclick="runScanner()">Run Scanner</button>
+        <button class="btn" id="btn-run" onclick="runScanner()">Run Scanner</button>
+    </div>
+
+    <div class="progress-bar-container" id="pbar-container">
+        <div class="progress-bar-fill" id="pbar-fill"></div>
     </div>
 
     <div class="status-bar">
-        <span id="scan-status">Ready to scan Binance Futures/Spot markets.</span>
-        <span id="scan-count">0 Signals Found</span>
+        <span id="scan-status">Ready. Click 'Load All Pairs' to scan every USDT Perpetual market.</span>
+        <span id="scan-count">0 Fresh Signals</span>
     </div>
 
     <div class="table-container">
@@ -251,11 +273,12 @@
                 <tr>
                     <th>Symbol</th>
                     <th>Type</th>
+                    <th>Age</th>
                     <th>Zone Range (Top - Bot)</th>
                     <th>Entry Mid</th>
                     <th>Take Profit (TP)</th>
                     <th>Stop Loss (SL)</th>
-                    <th>Volume Delta (Bull %)</th>
+                    <th>Volume Delta</th>
                     <th>POC Touches</th>
                     <th>Displacement</th>
                     <th>Status</th>
@@ -263,8 +286,8 @@
             </thead>
             <tbody id="results-body">
                 <tr>
-                    <td colspan="10" style="text-align: center; color: var(--text-secondary); padding: 30px;">
-                        Click "Run Scanner" to fetch market data and analyze Order Blocks.
+                    <td colspan="11" style="text-align: center; color: var(--text-secondary); padding: 30px;">
+                        Set your parameters and click "Run Scanner" to scan Binance Futures markets.
                     </td>
                 </tr>
             </tbody>
@@ -382,10 +405,28 @@
         }
     }
 
-    async function fetchBinanceKlines(symbol, interval, limit = 500) {
-        const url = `https://api.binance.com/api/v3/klines?symbol=${symbol.trim().toUpperCase()}&interval=${interval}&limit=${limit}`;
+    async function fetchAllFuturesPairs() {
+        const statusLbl = document.getElementById('scan-status');
+        statusLbl.innerText = "Fetching Binance USDT-M Futures exchange info...";
+        try {
+            const res = await fetch('https://fapi.binance.com/fapi/v1/exchangeInfo');
+            if (!res.ok) throw new Error("API request failed");
+            const data = await res.json();
+            const symbols = data.symbols
+                .filter(s => s.quoteAsset === 'USDT' && s.contractType === 'PERPETUAL' && s.status === 'TRADING')
+                .map(s => s.symbol);
+            
+            document.getElementById('symbols-input').value = symbols.join(', ');
+            statusLbl.innerText = `Loaded ${symbols.length} Binance USDT-M Perpetual Pairs.`;
+        } catch (e) {
+            statusLbl.innerText = "Failed to load Binance Futures pairs. Check network connection.";
+        }
+    }
+
+    async function fetchFuturesKlines(symbol, interval, limit = 500) {
+        const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol.trim().toUpperCase()}&interval=${interval}&limit=${limit}`;
         const response = await fetch(url);
-        if (!response.ok) throw new Error(`Failed to fetch data for ${symbol}`);
+        if (!response.ok) throw new Error(`Failed to fetch ${symbol}`);
         const data = await response.json();
 
         return data.map(d => ({
@@ -399,8 +440,8 @@
         }));
     }
 
-    async function analyzeSymbol(symbol, timeframe, swingLen, dispMult, tpMult, slMult) {
-        const klines = await fetchBinanceKlines(symbol, timeframe, 500);
+    async function analyzeSymbol(symbol, timeframe, swingLen, dispMult, tpMult, slMult, maxAge) {
+        const klines = await fetchFuturesKlines(symbol, timeframe, 500);
         const atr = TechnicalAnalysis.calcATR(klines, 14);
         const { ph, pl } = TechnicalAnalysis.findPivots(klines, swingLen);
 
@@ -529,12 +570,17 @@
         }
 
         const currentPrice = klines[klines.length - 1].close;
+        const totalBars = klines.length - 1;
+
         return activeOBs.filter(ob => ob.active).map(ob => {
             let status = "ACTIVE";
+            let ageInBars = totalBars - ob.createdIdx;
+
             if (ob.isBull && currentPrice <= ob.top && currentPrice >= ob.bot) status = "TESTING ZONE";
             if (!ob.isBull && currentPrice >= ob.bot && currentPrice <= ob.top) status = "TESTING ZONE";
-            return { ...ob, status };
-        });
+
+            return { ...ob, status, ageInBars };
+        }).filter(ob => ob.ageInBars <= maxAge);
     }
 
     async function runScanner() {
@@ -542,11 +588,14 @@
         const statusLbl = document.getElementById('scan-status');
         const countLbl = document.getElementById('scan-count');
         const tbody = document.getElementById('results-body');
+        const pbarContainer = document.getElementById('pbar-container');
+        const pbarFill = document.getElementById('pbar-fill');
 
         btn.disabled = true;
         btn.innerHTML = `<span class="loader"></span> Scanning...`;
-        statusLbl.innerText = "Fetching market data and calculating displacement models...";
         tbody.innerHTML = "";
+        pbarContainer.style.display = "block";
+        pbarFill.style.width = "0%";
 
         const symbols = document.getElementById('symbols-input').value.split(',').map(s => s.trim()).filter(s => s.length > 0);
         const timeframe = document.getElementById('tf-select').value;
@@ -554,52 +603,74 @@
         const dispMult = parseFloat(document.getElementById('disp-mult').value);
         const tpMult = parseFloat(document.getElementById('tp-mult').value);
         const slMult = parseFloat(document.getElementById('sl-mult').value);
+        const maxAge = parseInt(document.getElementById('max-age').value);
 
-        let totalSignals = 0;
+        let allSignals = [];
+        let batchSize = 10;
+        let processed = 0;
 
-        for (let symbol of symbols) {
-            try {
-                const signals = await analyzeSymbol(symbol, timeframe, swingLen, dispMult, tpMult, slMult);
-                totalSignals += signals.length;
+        for (let i = 0; i < symbols.length; i += batchSize) {
+            const chunk = symbols.slice(i, i + batchSize);
+            const promises = chunk.map(symbol => 
+                analyzeSymbol(symbol, timeframe, swingLen, dispMult, tpMult, slMult, maxAge)
+                    .catch(() => [])
+            );
 
-                for (let sig of signals) {
-                    const tr = document.createElement('tr');
-                    const isBull = sig.isBull;
-                    const typeBadge = isBull 
-                        ? `<span class="badge badge-bull">BULLISH OB (LONG)</span>` 
-                        : `<span class="badge badge-bear">BEARISH OB (SHORT)</span>`;
+            const results = await Promise.all(promises);
+            results.forEach(sigs => allSignals.push(...sigs));
 
-                    tr.innerHTML = `
-                        <td><strong>${sig.symbol}</strong></td>
-                        <td>${typeBadge}</td>
-                        <td>${sig.top.toFixed(4)} - ${sig.bot.toFixed(4)}</td>
-                        <td><strong>${sig.mid.toFixed(4)}</strong></td>
-                        <td class="val-bull">${sig.tp.toFixed(4)}</td>
-                        <td class="val-bear">${sig.sl.toFixed(4)}</td>
-                        <td>
-                            <div style="display:flex; align-items:center; gap:8px;">
-                                <span>${sig.bullPct}%</span>
-                                <div class="delta-bar-container">
-                                    <div class="delta-bar-fill" style="width: ${sig.bullPct}%"></div>
-                                </div>
-                            </div>
-                        </td>
-                        <td>${sig.touches}</td>
-                        <td>${sig.dispRatio}x ATR</td>
-                        <td><span style="color: ${sig.status === 'TESTING ZONE' ? '#ffb000' : 'var(--text-primary)'}; font-weight:600;">${sig.status}</span></td>
-                    `;
-                    tbody.appendChild(tr);
-                }
-            } catch (err) {
-                console.error(err);
-            }
+            processed += chunk.length;
+            let pct = Math.min(100, Math.round((processed / symbols.length) * 100));
+            pbarFill.style.width = `${pct}%`;
+            statusLbl.innerText = `Scanning ${processed}/${symbols.length} markets (${pct}%)...`;
         }
 
-        if (totalSignals === 0) {
+        // Sort: "TESTING ZONE" first, then by freshest (lowest ageInBars)
+        allSignals.sort((a, b) => {
+            if (a.status === "TESTING ZONE" && b.status !== "TESTING ZONE") return -1;
+            if (a.status !== "TESTING ZONE" && b.status === "TESTING ZONE") return 1;
+            return a.ageInBars - b.ageInBars;
+        });
+
+        for (let sig of allSignals) {
+            const tr = document.createElement('tr');
+            const isBull = sig.isBull;
+            const typeBadge = isBull 
+                ? `<span class="badge badge-bull">BULLISH OB (LONG)</span>` 
+                : `<span class="badge badge-bear">BEARISH OB (SHORT)</span>`;
+
+            const statusBadge = sig.status === 'TESTING ZONE'
+                ? `<span class="badge badge-testing">TESTING ZONE</span>`
+                : `<span style="color: var(--text-primary); font-weight:600;">ACTIVE</span>`;
+
+            tr.innerHTML = `
+                <td><strong>${sig.symbol}</strong></td>
+                <td>${typeBadge}</td>
+                <td><strong>${sig.ageInBars}</strong> bars ago</td>
+                <td>${sig.top.toFixed(4)} - ${sig.bot.toFixed(4)}</td>
+                <td><strong>${sig.mid.toFixed(4)}</strong></td>
+                <td class="val-bull">${sig.tp.toFixed(4)}</td>
+                <td class="val-bear">${sig.sl.toFixed(4)}</td>
+                <td>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span>${sig.bullPct}%</span>
+                        <div class="delta-bar-container">
+                            <div class="delta-bar-fill" style="width: ${sig.bullPct}%"></div>
+                        </div>
+                    </div>
+                </td>
+                <td>${sig.touches}</td>
+                <td>${sig.dispRatio}x ATR</td>
+                <td>${statusBadge}</td>
+            `;
+            tbody.appendChild(tr);
+        }
+
+        if (allSignals.length === 0) {
             tbody.innerHTML = `
                 <tr>
-                    <td colspan="10" style="text-align: center; color: var(--text-secondary); padding: 30px;">
-                        No active Order Blocks found matching the displacement criteria for the selected symbols.
+                    <td colspan="11" style="text-align: center; color: var(--text-secondary); padding: 30px;">
+                        No order blocks found within the last ${maxAge} bars matching your displacement criteria. Try increasing "Max OB Age".
                     </td>
                 </tr>
             `;
@@ -607,14 +678,11 @@
 
         btn.disabled = false;
         btn.innerHTML = "Run Scanner";
+        pbarContainer.style.display = "none";
         statusLbl.innerText = "Scan completed successfully.";
-        countLbl.innerText = `${totalSignals} Active Signals Found`;
+        countLbl.innerText = `${allSignals.length} Fresh Signals Found`;
         document.getElementById('last-updated').innerText = `Last Updated: ${new Date().toLocaleTimeString()}`;
     }
-
-    window.onload = () => {
-        runScanner();
-    };
 </script>
 
 </body>
