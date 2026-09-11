@@ -9,7 +9,7 @@
     :root {
       --bg: #0b0e11;
       --panel: #151a21;
-      --panel-2: #1e2329;
+      --panel2: #1e2329;
       --border: #2b313a;
       --text: #eaecef;
       --muted: #848e9c;
@@ -34,18 +34,18 @@
     }
 
     .container {
-      max-width: 1800px;
+      max-width: 1900px;
       margin: auto;
     }
 
     header {
       display: flex;
       justify-content: space-between;
-      gap: 16px;
       align-items: center;
-      border-bottom: 1px solid var(--border);
+      gap: 20px;
       padding-bottom: 16px;
       margin-bottom: 16px;
+      border-bottom: 1px solid var(--border);
     }
 
     h1 {
@@ -79,6 +79,10 @@
       gap: 5px;
     }
 
+    .full-width {
+      grid-column: 1 / -1;
+    }
+
     label {
       color: var(--muted);
       font-size: 11px;
@@ -89,23 +93,29 @@
     select,
     button {
       min-height: 36px;
+      padding: 8px 10px;
       border-radius: 5px;
       border: 1px solid var(--border);
       background: var(--bg);
       color: var(--text);
-      padding: 8px 10px;
+    }
+
+    input:focus,
+    select:focus {
+      outline: none;
+      border-color: var(--blue);
     }
 
     button {
-      background: var(--blue);
       border-color: var(--blue);
+      background: var(--blue);
       color: white;
       font-weight: bold;
       cursor: pointer;
     }
 
     button.secondary {
-      background: var(--panel-2);
+      background: var(--panel2);
       border-color: var(--border);
     }
 
@@ -114,41 +124,35 @@
       cursor: not-allowed;
     }
 
-    .symbols {
-      grid-column: 1 / -1;
-    }
-
-    .symbols input {
-      width: 100%;
-    }
-
     .checkboxes {
       display: flex;
       align-items: center;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 14px;
+      margin-top: 8px;
     }
 
     .checkboxes label {
       display: flex;
       align-items: center;
       gap: 5px;
-      text-transform: none;
       color: var(--text);
+      text-transform: none;
+      font-size: 12px;
     }
 
     .progress {
-      height: 5px;
-      background: var(--border);
-      border-radius: 3px;
-      overflow: hidden;
-      margin-top: 14px;
       display: none;
+      height: 5px;
+      margin-top: 14px;
+      overflow: hidden;
+      border-radius: 3px;
+      background: var(--border);
     }
 
-    .progress > div {
-      height: 100%;
+    .progress-fill {
       width: 0;
+      height: 100%;
       background: var(--blue);
       transition: width 0.15s;
     }
@@ -157,8 +161,8 @@
       display: flex;
       flex-wrap: wrap;
       gap: 18px;
-      color: var(--muted);
       margin-bottom: 16px;
+      color: var(--muted);
     }
 
     .summary strong {
@@ -174,7 +178,7 @@
 
     table {
       width: 100%;
-      min-width: 1250px;
+      min-width: 1400px;
       border-collapse: collapse;
     }
 
@@ -187,8 +191,8 @@
     }
 
     th {
+      background: var(--panel2);
       color: var(--muted);
-      background: var(--panel-2);
       font-size: 11px;
       text-transform: uppercase;
     }
@@ -207,6 +211,10 @@
 
     .warn {
       color: var(--yellow);
+    }
+
+    .muted {
+      color: var(--muted);
     }
 
     .badge {
@@ -241,15 +249,12 @@
       background: rgba(156, 39, 176, 0.12);
     }
 
-    .muted {
-      color: var(--muted);
-    }
-
     .error {
       color: var(--red);
     }
   </style>
 </head>
+
 <body>
 <div class="container">
 
@@ -261,7 +266,7 @@
   <div class="panel">
     <div class="controls">
 
-      <div class="control symbols">
+      <div class="control full-width">
         <label>Symbols</label>
         <input
           id="symbols"
@@ -289,7 +294,7 @@
       </div>
 
       <div class="control">
-        <label>Bars per request</label>
+        <label>Candles per request</label>
         <input id="limit" type="number" value="500" min="100" max="1500">
       </div>
 
@@ -329,878 +334,4 @@
       </div>
 
       <div class="control">
-        <label>Action</label>
-        <button id="runBtn">Run scan</button>
-      </div>
-
-      <div class="control">
-        <label>Universe</label>
-        <button id="loadBtn" class="secondary">Load liquid pairs</button>
-      </div>
-
-      <div class="checkboxes">
-        <label>
-          <input type="checkbox" id="showOld" checked>
-          Show older blocks
-        </label>
-
-        <label>
-          <input type="checkbox" id="requireVolume">
-          Require volume confirmation
-        </label>
-      </div>
-    </div>
-
-    <div class="progress" id="progress">
-      <div id="progressFill"></div>
-    </div>
-  </div>
-
-  <div class="summary">
-    <span>Signals: <strong id="signalCount">0</strong></span>
-    <span>Markets scanned: <strong id="marketCount">0</strong></span>
-    <span>Failures: <strong id="failureCount">0</strong></span>
-    <span>15m: <strong id="count15m">0</strong></span>
-    <span>1h: <strong id="count1h">0</strong></span>
-    <span>4h: <strong id="count4h">0</strong></span>
-    <span>1d: <strong id="count1d">0</strong></span>
-  </div>
-
-  <div class="table-wrap">
-    <table>
-      <thead>
-      <tr>
-        <th>Symbol</th>
-        <th>TF</th>
-        <th>Type</th>
-        <th>Age</th>
-        <th>Current</th>
-        <th>Entry</th>
-        <th>TP</th>
-        <th>SL</th>
-        <th>R:R</th>
-        <th>Distance TP</th>
-        <th>Displacement</th>
-        <th>Buy %</th>
-        <th>Touches</th>
-        <th>Status</th>
-      </tr>
-      </thead>
-      <tbody id="results">
-      <tr>
-        <td colspan="14" class="muted" style="text-align:center;padding:30px">
-          Run a scan to find candidate targets.
-        </td>
-      </tr>
-      </tbody>
-    </table>
-  </div>
-</div>
-
-<script>
-const API = 'https://fapi.binance.com';
-const INTERVALS = ['15m', '1h', '4h', '1d'];
-
-let filters = new Map();
-let scanRunning = false;
-let allResults = [];
-
-const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
-
-function number(id, fallback) {
-  const value = Number(document.getElementById(id).value);
-  return Number.isFinite(value) ? value : fallback;
-}
-
-function selectedConfig() {
-  return {
-    minVolume: number('minVolume', 100000000),
-    maxSymbols: Math.max(1, number('maxSymbols', 1000)),
-    limit: Math.min(1500, Math.max(100, number('limit', 500))),
-    swingLength: Math.min(20, Math.max(1, number('swingLength', 3))),
-    maxAge: Math.max(5, number('maxAge', 100)),
-    displacement: Math.max(0.1, number('displacement', 1)),
-    stopBuffer: Math.max(0.1, number('stopBuffer', 1.5)),
-    minRR: Math.max(0.1, number('minRR', 1.2)),
-    targetBuffer: Math.max(0, number('targetBuffer', 0.05)),
-    batchSize: Math.min(20, Math.max(1, number('batchSize', 8))),
-    requireVolume: document.getElementById('requireVolume').checked,
-    showOld: document.getElementById('showOld').checked
-  };
-}
-
-async function fetchJSON(url, retries = 3) {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    const response = await fetch(url);
-
-    if (response.ok) {
-      const data = await response.json();
-
-      if (data && !Array.isArray(data) && data.code) {
-        throw new Error(data.msg || 'Binance API error');
-      }
-
-      return data;
-    }
-
-    if ((response.status === 429 || response.status === 418) && attempt < retries) {
-      const retryAfter = Number(response.headers.get('Retry-After') || 2);
-      await sleep(Math.min(30000, retryAfter * 1000 * (attempt + 1)));
-      continue;
-    }
-
-    throw new Error(`HTTP ${response.status}`);
-  }
-
-  throw new Error('Request failed');
-}
-
-async function loadUniverse() {
-  const [info, tickers] = await Promise.all([
-    fetchJSON(`${API}/fapi/v1/exchangeInfo`),
-    fetchJSON(`${API}/fapi/v1/ticker/24hr`)
-  ]);
-
-  filters.clear();
-
-  for (const symbol of info.symbols) {
-    if (
-      symbol.quoteAsset !== 'USDT' ||
-      symbol.contractType !== 'PERPETUAL' ||
-      symbol.status !== 'TRADING'
-    ) continue;
-
-    const priceFilter = symbol.filters
-      .find(f => f.filterType === 'PRICE_FILTER');
-
-    filters.set(symbol.symbol, {
-      tickSize: Number(priceFilter?.tickSize || 0.0001),
-      minPrice: Number(priceFilter?.minPrice || 0)
-    });
-  }
-
-  const volumeMap = new Map(
-    tickers.map(t => [t.symbol, Number(t.quoteVolume)])
-  );
-
-  const minVolume = number('minVolume', 100000000);
-  const maxSymbols = number('maxSymbols', 1000);
-
-  return [...filters.keys()]
-    .filter(symbol => (volumeMap.get(symbol) || 0) >= minVolume)
-    .sort((a, b) =>
-      (volumeMap.get(b) || 0) - (volumeMap.get(a) || 0)
-    )
-    .slice(0, maxSymbols);
-}
-
-async function fetchKlines(symbol, interval, limit) {
-  const url =
-    `${API}/fapi/v1/klines` +
-    `?symbol=${encodeURIComponent(symbol)}` +
-    `&interval=${interval}` +
-    `&limit=${limit}`;
-
-  const data = await fetchJSON(url);
-
-  if (!Array.isArray(data) || data.length < 50) {
-    throw new Error(`${symbol} ${interval}: insufficient candles`);
-  }
-
-  return data.map(k => ({
-    time: Number(k[0]),
-    open: Number(k[1]),
-    high: Number(k[2]),
-    low: Number(k[3]),
-    close: Number(k[4]),
-    volume: Number(k[5]),
-    takerBuyVolume: Number(k[9])
-  }));
-}
-
-function atrSeries(candles, period = 14) {
-  const atr = new Array(candles.length).fill(null);
-  const tr = new Array(candles.length).fill(null);
-
-  for (let i = 0; i < candles.length; i++) {
-    if (i === 0) {
-      tr[i] = candles[i].high - candles[i].low;
-    } else {
-      const c = candles[i];
-      const p = candles[i - 1].close;
-
-      tr[i] = Math.max(
-        c.high - c.low,
-        Math.abs(c.high - p),
-        Math.abs(c.low - p)
-      );
-    }
-  }
-
-  if (candles.length <= period) return atr;
-
-  let seed = 0;
-
-  for (let i = 0; i < period; i++) {
-    seed += tr[i];
-  }
-
-  atr[period - 1] = seed / period;
-
-  for (let i = period; i < candles.length; i++) {
-    atr[i] = (
-      atr[i - 1] * (period - 1) + tr[i]
-    ) / period;
-  }
-
-  return atr;
-}
-
-function volumeAverage(candles, endIndex, period = 20) {
-  const start = Math.max(0, endIndex - period);
-  const values = candles
-    .slice(start, endIndex)
-    .map(c => c.volume)
-    .filter(Number.isFinite);
-
-  if (!values.length) return 0;
-
-  return values.reduce((a, b) => a + b, 0) / values.length;
-}
-
-function confirmedPivots(candles, swing) {
-  const highs = new Array(candles.length).fill(null);
-  const lows = new Array(candles.length).fill(null);
-
-  for (let i = swing; i < candles.length - swing; i++) {
-    let high = true;
-    let low = true;
-
-    for (let j = 1; j <= swing; j++) {
-      if (
-        candles[i].high <= candles[i - j].high ||
-        candles[i].high <= candles[i + j].high
-      ) high = false;
-
-      if (
-        candles[i].low >= candles[i - j].low ||
-        candles[i].low >= candles[i + j].low
-      ) low = false;
-    }
-
-    if (high) highs[i] = candles[i].high;
-    if (low) lows[i] = candles[i].low;
-  }
-
-  return { highs, lows };
-}
-
-function priceStep(price, symbol) {
-  const filter = filters.get(symbol);
-  if (!filter) return price;
-
-  const step = filter.tickSize;
-  const minPrice = filter.minPrice || 0;
-
-  return minPrice + Math.round((price - minPrice) / step) * step;
-}
-
-function decimals(step) {
-  const text = String(step);
-  if (!text.includes('.')) return 0;
-  return text.split('.')[1].replace(/0+$/, '').length;
-}
-
-function formatPrice(price, symbol) {
-  if (!Number.isFinite(price)) return '-';
-
-  const filter = filters.get(symbol);
-  const step = filter?.tickSize || 0.0001;
-  const rounded = priceStep(price, symbol);
-
-  return rounded.toFixed(decimals(step));
-}
-
-function calculateDelta(candle) {
-  const total = candle.volume;
-  const buy = candle.takerBuyVolume;
-  const sell = total - buy;
-
-  if (!Number.isFinite(total) || total <= 0) {
-    return {
-      buyPct: 50,
-      deltaPct: 0
-    };
-  }
-
-  return {
-    buyPct: buy / total * 100,
-    deltaPct: (buy - sell) / total * 100
-  };
-}
-
-function chooseLiquidityTarget({
-  candles,
-  pivots,
-  createdIndex,
-  currentPrice,
-  entry,
-  stop,
-  isBull,
-  atr,
-  minRR,
-  targetBuffer
-}) {
-  const risk = isBull ? entry - stop : stop - entry;
-
-  if (!Number.isFinite(risk) || risk <= 0) return null;
-
-  const levels = [];
-
-  if (isBull) {
-    for (let i = createdIndex + 1; i < pivots.highs.length; i++) {
-      const level = pivots.highs[i];
-
-      if (level !== null && level > entry && level > currentPrice) {
-        levels.push(level);
-      }
-    }
-
-    levels.sort((a, b) => a - b);
-
-    for (const level of levels) {
-      const target = level - atr * targetBuffer;
-      const reward = target - entry;
-
-      if (target > entry && reward / risk >= minRR) {
-        return target;
-      }
-    }
-
-    const fallback = entry + risk * minRR;
-
-    if (fallback > currentPrice) {
-      return fallback;
-    }
-  } else {
-    for (let i = createdIndex + 1; i < pivots.lows.length; i++) {
-      const level = pivots.lows[i];
-
-      if (level !== null && level < entry && level < currentPrice) {
-        levels.push(level);
-      }
-    }
-
-    levels.sort((a, b) => b - a);
-
-    for (const level of levels) {
-      const target = level + atr * targetBuffer;
-      const reward = entry - target;
-
-      if (target < entry && reward / risk >= minRR) {
-        return target;
-      }
-    }
-
-    const fallback = entry - risk * minRR;
-
-    if (fallback < currentPrice) {
-      return fallback;
-    }
-  }
-
-  return null;
-}
-
-function findOrderBlocks(candles, symbol, interval, config) {
-  const analysis = candles.slice(0, -1);
-
-  if (analysis.length < 80) return [];
-
-  const atr = atrSeries(analysis, 14);
-  const pivots = confirmedPivots(analysis, config.swingLength);
-  const current = analysis.at(-1);
-  const currentPrice = current.close;
-  const lastIndex = analysis.length - 1;
-  const results = [];
-
-  let lastHigh = null;
-  let lastHighIndex = null;
-  let lastLow = null;
-  let lastLowIndex = null;
-
-  for (
-    let i = config.swingLength;
-    i < lastIndex;
-    i++
-  ) {
-    const confirmedIndex = i - config.swingLength;
-
-    if (pivots.highs[confirmedIndex] !== null) {
-      lastHigh = pivots.highs[confirmedIndex];
-      lastHighIndex = confirmedIndex;
-    }
-
-    if (pivots.lows[confirmedIndex] !== null) {
-      lastLow = pivots.lows[confirmedIndex];
-      lastLowIndex = confirmedIndex;
-    }
-
-    const currentATR = atr[i];
-
-    if (!currentATR || currentATR <= 0) continue;
-
-    const averageVolume = volumeAverage(analysis, i, 20);
-    const volumeConfirmed =
-      !config.requireVolume ||
-      analysis[i].volume >= averageVolume * 1.1;
-
-    if (!volumeConfirmed) continue;
-
-    const bullBOS =
-      lastHigh !== null &&
-      lastHighIndex !== null &&
-      i > lastHighIndex &&
-      analysis[i].close > lastHigh &&
-      analysis[i - 1].close <= lastHigh;
-
-    const bearBOS =
-      lastLow !== null &&
-      lastLowIndex !== null &&
-      i > lastLowIndex &&
-      analysis[i].close < lastLow &&
-      analysis[i - 1].close >= lastLow;
-
-    if (bullBOS && lastHighIndex !== null) {
-      const obIndex = findLastOpposingCandle(
-        analysis,
-        lastHighIndex,
-        i,
-        false
-      );
-
-      if (obIndex !== null) {
-        const candidate = buildCandidate({
-          candles: analysis,
-          symbol,
-          interval,
-          index: obIndex,
-          bosIndex: i,
-          atr,
-          pivots,
-          currentPrice,
-          isBull: true,
-          config
-        });
-
-        if (candidate) results.push(candidate);
-      }
-
-      lastHigh = null;
-      lastHighIndex = null;
-    }
-
-    if (bearBOS && lastLowIndex !== null) {
-      const obIndex = findLastOpposingCandle(
-        analysis,
-        lastLowIndex,
-        i,
-        true
-      );
-
-      if (obIndex !== null) {
-        const candidate = buildCandidate({
-          candles: analysis,
-          symbol,
-          interval,
-          index: obIndex,
-          bosIndex: i,
-          atr,
-          pivots,
-          currentPrice,
-          isBull: false,
-          config
-        });
-
-        if (candidate) results.push(candidate);
-      }
-
-      lastLow = null;
-      lastLowIndex = null;
-    }
-  }
-
-  return deduplicateCandidates(results, config.maxAge);
-}
-
-function findLastOpposingCandle(candles, start, end, bullishBlock) {
-  for (let i = end - 1; i >= start; i--) {
-    const candle = candles[i];
-
-    const bullish = candle.close > candle.open;
-    const bearish = candle.close < candle.open;
-
-    if (bullishBlock && bullish) return i;
-    if (!bullishBlock && bearish) return i;
-  }
-
-  return null;
-}
-
-function buildCandidate({
-  candles,
-  symbol,
-  interval,
-  index,
-  bosIndex,
-  atr,
-  pivots,
-  currentPrice,
-  isBull,
-  config
-}) {
-  const ob = candles[index];
-  const bos = candles[bosIndex];
-  const atrAtOB = atr[index];
-  const atrAtBOS = atr[bosIndex];
-
-  if (!atrAtOB || !atrAtBOS) return null;
-
-  const displacement = isBull
-    ? bos.close - ob.low
-    : ob.high - bos.close;
-
-  const displacementRatio = displacement / atrAtOB;
-
-  if (displacementRatio < config.displacement) return null;
-
-  const top = ob.high;
-  const bottom = ob.low;
-  const entry = (top + bottom) / 2;
-
-  const stop = isBull
-    ? bottom - atrAtBOS * config.stopBuffer
-    : top + atrAtBOS * config.stopBuffer;
-
-  const target = chooseLiquidityTarget({
-    candles,
-    pivots,
-    createdIndex: bosIndex,
-    currentPrice,
-    entry,
-    stop,
-    isBull,
-    atr: atrAtBOS,
-    minRR: config.minRR,
-    targetBuffer: config.targetBuffer
-  });
-
-  if (target === null) return null;
-
-  const risk = isBull ? entry - stop : stop - entry;
-  const reward = isBull ? target - entry : entry - target;
-  const rr = reward / risk;
-
-  if (
-    !Number.isFinite(rr) ||
-    rr < config.minRR ||
-    (isBull && target <= entry) ||
-    (!isBull && target >= entry)
-  ) {
-    return null;
-  }
-
-  const delta = calculateDelta(ob);
-
-  let invalidated = false;
-  let touches = 0;
-
-  for (let j = index + 1; j <= candles.length - 1; j++) {
-    const candle = candles[j];
-
-    if (
-      candle.high >= bottom &&
-      candle.low <= top
-    ) {
-      touches++;
-    }
-
-    if (isBull && candle.close < bottom) {
-      invalidated = true;
-      break;
-    }
-
-    if (!isBull && candle.close > top) {
-      invalidated = true;
-      break;
-    }
-  }
-
-  if (invalidated) return null;
-
-  const age = candles.length - 1 - bosIndex;
-
-  if (age > config.maxAge && !config.showOld) {
-    return null;
-  }
-
-  const testing =
-    currentPrice >= bottom &&
-    currentPrice <= top;
-
-  const distanceToTarget = isBull
-    ? (target - currentPrice) / currentPrice * 100
-    : (currentPrice - target) / currentPrice * 100;
-
-  const distanceToEntry = isBull
-    ? (entry - currentPrice) / currentPrice * 100
-    : (currentPrice - entry) / currentPrice * 100;
-
-  return {
-    symbol,
-    interval,
-    isBull,
-    type: isBull ? 'LONG OB' : 'SHORT OB',
-    age,
-    top,
-    bottom,
-    entry,
-    stop,
-    target,
-    rr,
-    touches,
-    testing,
-    displacementRatio,
-    buyPct: delta.buyPct,
-    deltaPct: delta.deltaPct,
-    distanceToTarget,
-    distanceToEntry,
-    createdTime: candles[bosIndex].time
-  };
-}
-
-function deduplicateCandidates(results, maxAge) {
-  const sorted = results
-    .filter(x => x.age <= maxAge)
-    .sort((a, b) => {
-      if (a.testing !== b.testing) {
-        return Number(b.testing) - Number(a.testing);
-      }
-
-      if (a.age !== b.age) {
-        return a.age - b.age;
-      }
-
-      return b.rr - a.rr;
-    });
-
-  const seen = new Set();
-  const output = [];
-
-  for (const item of sorted) {
-    const key = [
-      item.symbol,
-      item.interval,
-      item.isBull ? 'B' : 'S',
-      Math.round(item.entry * 10000)
-    ].join(':');
-
-    if (seen.has(key)) continue;
-
-    seen.add(key);
-    output.push(item);
-  }
-
-  return output;
-}
-
-function render(results) {
-  const tbody = document.getElementById('results');
-  tbody.innerHTML = '';
-
-  if (!results.length) {
-    tbody.innerHTML = `
-      <tr>
-        <td colspan="14" class="muted" style="text-align:center;padding:30px">
-          No qualifying targets found.
-        </td>
-      </tr>
-    `;
-    return;
-  }
-
-  for (const row of results) {
-    const tr = document.createElement('tr');
-
-    const typeClass = row.isBull ? 'badge-bull' : 'badge-bear';
-    const priceClass = row.isBull ? 'bull' : 'bear';
-
-    const status = row.testing
-      ? `<span class="badge badge-test">TESTING ZONE</span>`
-      : `<span class="muted">ACTIVE</span>`;
-
-    tr.innerHTML = `
-      <td><strong>${row.symbol}</strong></td>
-      <td>${row.interval}</td>
-      <td><span class="badge ${typeClass}">${row.type}</span></td>
-      <td>${row.age}</td>
-      <td class="${priceClass}">${formatPrice(row.currentPrice, row.symbol)}</td>
-      <td>${formatPrice(row.entry, row.symbol)}</td>
-      <td class="bull">${formatPrice(row.target, row.symbol)}</td>
-      <td class="bear">${formatPrice(row.stop, row.symbol)}</td>
-      <td>${row.rr.toFixed(2)}</td>
-      <td>${row.distanceToTarget.toFixed(2)}%</td>
-      <td>${row.displacementRatio.toFixed(2)} ATR</td>
-      <td>${row.buyPct.toFixed(1)}%</td>
-      <td>${row.touches}</td>
-      <td>${status}</td>
-    `;
-
-    tbody.appendChild(tr);
-  }
-}
-
-async function scanSymbolTimeframe(symbol, interval, config) {
-  const candles = await fetchKlines(symbol, interval, config.limit);
-  const results = findOrderBlocks(candles, symbol, interval, config);
-
-  for (const row of results) {
-    row.currentPrice = candles.at(-2)?.close;
-  }
-
-  return results;
-}
-
-async function runScan() {
-  if (scanRunning) return;
-
-  scanRunning = true;
-
-  const config = selectedConfig();
-  const runBtn = document.getElementById('runBtn');
-  const progress = document.getElementById('progress');
-  const progressFill = document.getElementById('progressFill');
-  const status = document.getElementById('status');
-
-  runBtn.disabled = true;
-  progress.style.display = 'block';
-  progressFill.style.width = '0%';
-
-  let symbols = [];
-  let failures = 0;
-
-  try {
-    if (document.getElementById('universe').value === 'all') {
-      status.textContent = 'Loading liquid USDT perpetuals...';
-      symbols = await loadUniverse();
-    } else {
-      symbols = document.getElementById('symbols').value
-        .split(',')
-        .map(s => s.trim().toUpperCase())
-        .filter(Boolean);
-    }
-
-    if (!symbols.length) {
-      throw new Error('No symbols selected');
-    }
-
-    allResults = [];
-    const jobs = [];
-
-    for (const symbol of symbols) {
-      for (const interval of INTERVALS) {
-        jobs.push({ symbol, interval });
-      }
-    }
-
-    let completed = 0;
-
-    for (let i = 0; i < jobs.length; i += config.batchSize) {
-      const batch = jobs.slice(i, i + config.batchSize);
-
-      const values = await Promise.all(
-        batch.map(async job => {
-          try {
-            return await scanSymbolTimeframe(
-              job.symbol,
-              job.interval,
-              config
-            );
-          } catch (error) {
-            failures++;
-            return [];
-          }
-        })
-      );
-
-      for (const result of values) {
-        allResults.push(...result);
-      }
-
-      completed += batch.length;
-      const percent = completed / jobs.length * 100;
-
-      progressFill.style.width = `${percent}%`;
-      status.textContent =
-        `Scanning ${completed}/${jobs.length} jobs — ` +
-        `${allResults.length} signals`;
-    }
-
-    allResults.sort((a, b) => {
-      if (a.testing !== b.testing) {
-        return Number(b.testing) - Number(a.testing);
-      }
-
-      if (a.interval !== b.interval) {
-        return INTERVALS.indexOf(a.interval) -
-               INTERVALS.indexOf(b.interval);
-      }
-
-      return b.rr - a.rr;
-    });
-
-    render(allResults);
-
-    document.getElementById('signalCount').textContent = allResults.length;
-    document.getElementById('marketCount').textContent = symbols.length;
-    document.getElementById('failureCount').textContent = failures;
-
-    for (const interval of INTERVALS) {
-      document.getElementById(
-        `count${interval.replace('m', 'm').replace('h', 'h').replace('d', 'd')}`
-      ).textContent =
-        allResults.filter(x => x.interval === interval).length;
-    }
-
-    status.textContent =
-      `Complete: ${allResults.length} signals, ${failures} failures`;
-  } catch (error) {
-    status.textContent = `Scan failed: ${error.message}`;
-  } finally {
-    scanRunning = false;
-    runBtn.disabled = false;
-    progress.style.display = 'none';
-  }
-}
-
-async function loadPairsIntoInput() {
-  try {
-    document.getElementById('status').textContent =
-      'Loading liquid futures pairs...';
-
-    const symbols = await loadUniverse();
-
-    document.getElementById('symbols').value = symbols.join(',');
-    document.getElementById('status').textContent =
-      `Loaded ${symbols.length} liquid pairs`;
-  } catch (error) {
-    document.getElementById('status').textContent =
-      `Failed to load pairs: ${error.message}`;
-  }
-}
-
-document.getElementById('runBtn').addEventListener('click', runScan);
-document.getElementById('loadBtn').addEventListener('click', loadPairsIntoInput);
-</script>
-</body>
-</html>
+        <label>Act
