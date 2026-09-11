@@ -1,270 +1,200 @@
-NOW? <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Flux & Stat Volume Delta Futures Scanner</title>
+    <title>Binance Futures Order Block & Delta Scanner</title>
     <style>
         :root {
-            --bg-color: #0b0e14;
-            --panel-bg: #151921;
-            --border-color: #232733;
-            --text-primary: #e1e3e6;
-            --text-secondary: #848e9c;
-            --bull-color: #0ecb81;
-            --bear-color: #f6465d;
-            --accent-color: #2962ff;
-            --accent-hover: #1e53e5;
-            --warn-color: #ffb000;
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --border-color: #334155;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --bullish-color: #22c55e;
+            --bearish-color: #ef4444;
+            --accent: #3b82f6;
         }
 
         body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
             margin: 0;
             padding: 20px;
-            background-color: var(--bg-color);
-            color: var(--text-primary);
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            font-size: 13px;
         }
 
         .container {
-            max-width: 1500px;
+            max-width: 1400px;
             margin: 0 auto;
         }
 
-        .header {
+        header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
+            padding-bottom: 20px;
             border-bottom: 1px solid var(--border-color);
-        }
-
-        .header h1 {
-            margin: 0;
-            font-size: 20px;
-            font-weight: 600;
-            letter-spacing: 0.5px;
-        }
-
-        .controls-panel {
-            background-color: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
-            padding: 16px;
             margin-bottom: 20px;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-            gap: 12px;
-            align-items: end;
         }
 
-        .input-group {
+        h1 { margin: 0; font-size: 1.5rem; color: #fff; }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            flex-wrap: wrap;
+            background: var(--card-bg);
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid var(--border-color);
+        }
+
+        .control-group {
             display: flex;
             flex-direction: column;
-            gap: 6px;
+            gap: 5px;
         }
 
-        .input-group label {
-            color: var(--text-secondary);
-            font-size: 11px;
-            font-weight: 500;
-            text-transform: uppercase;
-        }
+        label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; }
 
-        .input-group input, .input-group select {
-            background-color: var(--bg-color);
+        select, input, button {
+            background: var(--bg-dark);
             border: 1px solid var(--border-color);
-            color: var(--text-primary);
-            padding: 8px 10px;
+            color: var(--text-main);
+            padding: 8px 12px;
             border-radius: 4px;
             outline: none;
-            font-size: 12px;
         }
 
-        .input-group input:focus, .input-group select:focus {
-            border-color: var(--accent-color);
-        }
-
-        .btn-group {
-            display: flex;
-            gap: 8px;
-        }
-
-        .btn {
-            background-color: var(--accent-color);
-            color: #ffffff;
-            border: none;
-            padding: 9px 14px;
-            border-radius: 4px;
-            font-weight: 600;
+        button {
+            background: var(--accent);
+            color: white;
+            font-weight: bold;
             cursor: pointer;
-            transition: background-color 0.2s;
-            height: 35px;
-            font-size: 12px;
-            white-space: nowrap;
+            border: none;
+            transition: opacity 0.2s;
+            margin-top: auto;
         }
 
-        .btn:hover { background-color: var(--accent-hover); }
-        .btn-secondary { background-color: #2b313a; color: var(--text-primary); }
-        .btn-secondary:hover { background-color: #363d47; }
-        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
 
         .progress-bar-container {
             width: 100%;
-            height: 4px;
-            background-color: var(--border-color);
-            border-radius: 2px;
-            margin-bottom: 15px;
+            height: 6px;
+            background: var(--bg-dark);
+            border-radius: 3px;
             overflow: hidden;
-            display: none;
+            margin-top: 10px;
         }
 
-        .progress-bar-fill {
+        .progress-bar {
             height: 100%;
-            background-color: var(--accent-color);
             width: 0%;
+            background: var(--accent);
             transition: width 0.1s ease;
         }
 
-        .status-bar {
-            margin-bottom: 15px;
-            color: var(--text-secondary);
-            font-size: 12px;
+        .stats {
             display: flex;
-            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+            color: var(--text-muted);
         }
 
         .table-container {
-            background-color: var(--panel-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 6px;
             overflow-x: auto;
+            background: var(--card-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
             text-align: left;
+            font-size: 0.85rem;
+        }
+
+        th, td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
         }
 
         th {
-            background-color: rgba(255, 255, 255, 0.02);
-            color: var(--text-secondary);
-            padding: 12px 14px;
+            background: rgba(0,0,0,0.2);
+            color: var(--text-muted);
             font-weight: 600;
-            font-size: 11px;
-            text-transform: uppercase;
-            border-bottom: 1px solid var(--border-color);
         }
 
-        td {
-            padding: 12px 14px;
-            border-bottom: 1px solid var(--border-color);
-            font-size: 12px;
-        }
-
-        tr:hover { background-color: rgba(255, 255, 255, 0.02); }
+        tr:hover { background: rgba(255,255,255,0.02); }
 
         .badge {
-            padding: 3px 8px;
-            border-radius: 3px;
-            font-weight: 600;
-            font-size: 10px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 0.75rem;
             display: inline-block;
-            text-transform: uppercase;
         }
 
-        .badge-bull { background-color: rgba(14, 203, 129, 0.15); color: var(--bull-color); border: 1px solid var(--bull-color); }
-        .badge-bear { background-color: rgba(246, 70, 93, 0.15); color: var(--bear-color); border: 1px solid var(--bear-color); }
-        .badge-testing { background-color: rgba(255, 176, 0, 0.15); color: var(--warn-color); border: 1px solid var(--warn-color); }
+        .badge-bull { background: rgba(34, 197, 94, 0.2); color: var(--bullish-color); }
+        .badge-bear { background: rgba(239, 68, 68, 0.2); color: var(--bearish-color); }
+        .badge-testing { background: rgba(234, 179, 8, 0.2); color: #eab308; animation: pulse 1.5s infinite; }
 
-        .val-bull { color: var(--bull-color); font-weight: 600; }
-        .val-bear { color: var(--bear-color); font-weight: 600; }
-
-        .delta-bar-container {
-            width: 80px;
-            height: 10px;
-            background-color: var(--bear-color);
-            border-radius: 2px;
-            overflow: hidden;
-            display: flex;
+        @keyframes pulse {
+            0% { opacity: 0.6; }
+            50% { opacity: 1; }
+            100% { opacity: 0.6; }
         }
-
-        .delta-bar-fill { height: 100%; background-color: var(--bull-color); }
-
-        .loader {
-            display: inline-block;
-            width: 12px;
-            height: 12px;
-            border: 2px solid rgba(255,255,255,.3);
-            border-radius: 50%;
-            border-top-color: #fff;
-            animation: spin 1s ease-in-out infinite;
-            margin-right: 6px;
-        }
-
-        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="header">
-        <h1>Flux & Stat Volume Delta Scanner (Binance Futures)</h1>
-        <div id="last-updated" style="color: var(--text-secondary); font-size: 12px;"></div>
-    </div>
+    <header>
+        <h1>Order Block & Volume Delta Scanner (Binance Futures)</h1>
+        <div id="status">Status: Ready</div>
+    </header>
 
-    <div class="controls-panel">
-        <div class="input-group" style="grid-column: span 2;">
-            <label>Symbols (USDT-M Futures)</label>
-            <div class="btn-group">
-                <input type="text" id="symbols-input" value="BTCUSDT, ETHUSDT, SOLUSDT, TAOUSDT, XRPUSDT, BONKUSDT, LITUSDT, RVNUSDT" style="flex: 1;">
-                <button class="btn btn-secondary" onclick="fetchAllFuturesPairs()">Load All Pairs</button>
-            </div>
-        </div>
-        <div class="input-group">
+    <div class="controls">
+        <div class="control-group">
             <label>Timeframe</label>
-            <select id="tf-select">
-                <option value="1m">1 Minute</option>
-                <option value="5m">5 Minutes</option>
-                <option value="15m" selected>15 Minutes</option>
-                <option value="1h">1 Hour</option>
-                <option value="4h">4 Hours</option>
-                <option value="1d">1 Day</option>
+            <select id="timeframe">
+                <option value="15m">15m</option>
+                <option value="1h" selected>1h</option>
+                <option value="4h">4h</option>
+                <option value="1d">1d</option>
             </select>
         </div>
-        <div class="input-group">
-            <label>Max OB Age (Bars)</label>
-            <input type="number" id="max-age" value="50" min="5" max="500" title="Only display order blocks created within the last X candles.">
+
+        <div class="control-group">
+            <label>Displacement (x ATR)</label>
+            <input type="number" id="dispMult" value="1.5" step="0.1" min="0.5">
         </div>
-        <div class="input-group">
-            <label>Swing Length</label>
-            <input type="number" id="swing-len" value="5" min="1" max="50">
+
+        <div class="control-group">
+            <label>Stop Loss (x ATR)</label>
+            <input type="number" id="slMult" value="1.0" step="0.1" min="0.5">
         </div>
-        <div class="input-group">
-            <label>Displacement (ATR)</label>
-            <input type="number" id="disp-mult" value="1.5" step="0.1" min="0.5">
+
+        <div class="control-group">
+            <label>Take Profit (x ATR)</label>
+            <input type="number" id="tpMult" value="3.0" step="0.5" min="1.0">
         </div>
-        <div class="input-group">
-            <label>TP ATR Multiplier</label>
-            <input type="number" id="tp-mult" value="3.0" step="0.1">
+
+        <button id="scanBtn" onclick="startScan()">Start Market Scan</button>
+
+        <div class="progress-bar-container">
+            <div id="progressBar" class="progress-bar"></div>
         </div>
-        <div class="input-group">
-            <label>SL ATR Multiplier</label>
-            <input type="number" id="sl-mult" value="6.0" step="0.1">
-        </div>
-        <button class="btn" id="btn-run" onclick="runScanner()">Run Scanner</button>
     </div>
 
-    <div class="progress-bar-container" id="pbar-container">
-        <div class="progress-bar-fill" id="pbar-fill"></div>
-    </div>
-
-    <div class="status-bar">
-        <span id="scan-status">Ready. Click 'Load All Pairs' to scan every USDT Perpetual market.</span>
-        <span id="scan-count">0 Fresh Signals</span>
+    <div class="stats">
+        <div>Pairs Evaluated: <span id="scannedCount" style="color: #fff;">0</span></div>
+        <div>Active OBs Found: <span id="foundCount" style="color: #fff;">0</span></div>
     </div>
 
     <div class="table-container">
@@ -273,21 +203,21 @@ NOW? <!DOCTYPE html>
                 <tr>
                     <th>Symbol</th>
                     <th>Type</th>
-                    <th>Age</th>
-                    <th>Zone Range (Top - Bot)</th>
-                    <th>Entry Mid</th>
-                    <th>Take Profit (TP)</th>
-                    <th>Stop Loss (SL)</th>
-                    <th>Volume Delta</th>
-                    <th>POC Touches</th>
-                    <th>Displacement</th>
-                    <th>Status</th>
+                    <th>Zone Status</th>
+                    <th>OB Range (Low - High)</th>
+                    <th>Entry (Mid)</th>
+                    <th>Stop Loss</th>
+                    <th>Take Profit</th>
+                    <th>R:R</th>
+                    <th>OB Buy Vol %</th>
+                    <th>Displacement Ratio</th>
+                    <th>Touches</th>
                 </tr>
             </thead>
-            <tbody id="results-body">
+            <tbody id="resultsBody">
                 <tr>
-                    <td colspan="11" style="text-align: center; color: var(--text-secondary); padding: 30px;">
-                        Set your parameters and click "Run Scanner" to scan Binance Futures markets.
+                    <td colspan="11" style="text-align:center; color: var(--text-muted); padding: 30px;">
+                        Click "Start Market Scan" to scan Binance USDT-M Perpetual Pairs.
                     </td>
                 </tr>
             </tbody>
@@ -296,392 +226,257 @@ NOW? <!DOCTYPE html>
 </div>
 
 <script>
-    class TechnicalAnalysis {
-        static calcATR(klines, period = 14) {
-            let atr = new Array(klines.length).fill(0);
-            let tr = new Array(klines.length).fill(0);
+    const BINANCE_BASE = 'https://fapi.binance.com';
 
-            for (let i = 0; i < klines.length; i++) {
-                if (i === 0) {
-                    tr[i] = klines[i].high - klines[i].low;
-                } else {
-                    const h = klines[i].high;
-                    const l = klines[i].low;
-                    const cp = klines[i - 1].close;
-                    tr[i] = Math.max(h - l, Math.abs(h - cp), Math.abs(l - cp));
-                }
-            }
+    // Helper: Delay function to prevent 429 API rate limits
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-            let sum = 0;
-            for (let i = 0; i < klines.length; i++) {
-                if (i < period) {
-                    sum += tr[i];
-                    if (i === period - 1) atr[i] = sum / period;
-                } else {
-                    atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period;
-                }
-            }
-            return atr;
-        }
-
-        static findPivots(klines, swingLen) {
-            let ph = new Array(klines.length).fill(null);
-            let pl = new Array(klines.length).fill(null);
-
-            for (let i = swingLen; i < klines.length - swingLen; i++) {
-                let isHigh = true;
-                let isLow = true;
-
-                for (let j = 1; j <= swingLen; j++) {
-                    if (klines[i].high <= klines[i - j].high || klines[i].high <= klines[i + j].high) isHigh = false;
-                    if (klines[i].low >= klines[i - j].low || klines[i].low >= klines[i + j].low) isLow = false;
-                }
-
-                if (isHigh) ph[i] = klines[i].high;
-                if (isLow) pl[i] = klines[i].low;
-            }
-            return { ph, pl };
-        }
-
-        static findPOC(klines, fromIdx, toIdx, nBins = 40) {
-            if (fromIdx < 0 || toIdx >= klines.length || fromIdx >= toIdx) {
-                return { poc: null, touches: 0, bullVol: 0, bearVol: 0, totVol: 0 };
-            }
-
-            let minP = Infinity;
-            let maxP = -Infinity;
-
-            for (let i = fromIdx; i <= toIdx; i++) {
-                if (klines[i].low < minP) minP = klines[i].low;
-                if (klines[i].high > maxP) maxP = klines[i].high;
-            }
-
-            if (minP >= maxP) return { poc: null, touches: 0, bullVol: 0, bearVol: 0, totVol: 0 };
-
-            let step = (maxP - minP) / nBins;
-            if (step <= 0) step = 0.000001;
-
-            let diffCnt = new Array(nBins).fill(0);
-
-            for (let i = fromIdx; i <= toIdx; i++) {
-                let sBin = Math.floor((klines[i].low - minP) / step);
-                let eBin = Math.floor((klines[i].high - minP) / step);
-                sBin = Math.max(0, Math.min(nBins - 1, sBin));
-                eBin = Math.max(0, Math.min(nBins - 1, eBin));
-
-                diffCnt[sBin] += 1;
-                if (eBin + 1 < nBins) diffCnt[eBin + 1] -= 1;
-            }
-
-            let bestBin = 0;
-            let bestCnt = 0;
-            let runCnt = 0;
-
-            for (let i = 0; i < nBins; i++) {
-                runCnt += diffCnt[i];
-                if (runCnt > bestCnt) {
-                    bestCnt = runCnt;
-                    bestBin = i;
-                }
-            }
-
-            let poc = minP + (bestBin + 0.5) * step;
-
-            let touches = 0;
-            let totVol = 0;
-            let bullVol = 0;
-            let bearVol = 0;
-
-            for (let i = fromIdx; i <= toIdx; i++) {
-                if (klines[i].low <= poc && klines[i].high >= poc) {
-                    touches++;
-                    totVol += klines[i].volume;
-                    bullVol += klines[i].takerBuyVol;
-                    bearVol += (klines[i].volume - klines[i].takerBuyVol);
-                }
-            }
-
-            return { poc, touches, bullVol, bearVol, totVol };
-        }
-    }
-
-    async function fetchAllFuturesPairs() {
-        const statusLbl = document.getElementById('scan-status');
-        statusLbl.innerText = "Fetching Binance USDT-M Futures exchange info...";
+    async function fetchUSDTMarketSymbols() {
         try {
-            const res = await fetch('https://fapi.binance.com/fapi/v1/exchangeInfo');
-            if (!res.ok) throw new Error("API request failed");
+            const res = await fetch(`${BINANCE_BASE}/fapi/v1/exchangeInfo`);
             const data = await res.json();
-            const symbols = data.symbols
-                .filter(s => s.quoteAsset === 'USDT' && s.contractType === 'PERPETUAL' && s.status === 'TRADING')
+            return data.symbols
+                .filter(s => s.quoteAsset === 'USDT' && s.status === 'TRADING' && s.contractType === 'PERPETUAL')
                 .map(s => s.symbol);
-            
-            document.getElementById('symbols-input').value = symbols.join(', ');
-            statusLbl.innerText = `Loaded ${symbols.length} Binance USDT-M Perpetual Pairs.`;
-        } catch (e) {
-            statusLbl.innerText = "Failed to load Binance Futures pairs. Check network connection.";
+        } catch (err) {
+            console.error('Failed to fetch Binance symbols:', err);
+            return [];
         }
     }
 
-    async function fetchFuturesKlines(symbol, interval, limit = 500) {
-        const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol.trim().toUpperCase()}&interval=${interval}&limit=${limit}`;
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Failed to fetch ${symbol}`);
-        const data = await response.json();
-
-        return data.map(d => ({
-            time: d[0],
-            open: parseFloat(d[1]),
-            high: parseFloat(d[2]),
-            low: parseFloat(d[3]),
-            close: parseFloat(d[4]),
-            volume: parseFloat(d[5]),
-            takerBuyVol: parseFloat(d[9])
-        }));
+    async function fetchKlines(symbol, interval, limit = 200) {
+        try {
+            const res = await fetch(`${BINANCE_BASE}/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
+            if (!res.ok) return null;
+            const raw = await res.json();
+            return raw.map(c => ({
+                time: c[0],
+                open: parseFloat(c[1]),
+                high: parseFloat(c[2]),
+                low: parseFloat(c[3]),
+                close: parseFloat(c[4]),
+                volume: parseFloat(c[5]),
+                takerBuyVol: parseFloat(c[9])
+            }));
+        } catch (err) {
+            return null;
+        }
     }
 
-    async function analyzeSymbol(symbol, timeframe, swingLen, dispMult, tpMult, slMult, maxAge) {
-        const klines = await fetchFuturesKlines(symbol, timeframe, 500);
-        const atr = TechnicalAnalysis.calcATR(klines, 14);
-        const { ph, pl } = TechnicalAnalysis.findPivots(klines, swingLen);
+    function calculateATR(klines, period = 14) {
+        let atr = new Array(klines.length).fill(0);
+        let trs = [];
 
-        let activeOBs = [];
+        for (let i = 1; i < klines.length; i++) {
+            const high = klines[i].high;
+            const low = klines[i].low;
+            const prevClose = klines[i - 1].close;
 
-        let lastSHPrice = null, lastSHIdx = null;
-        let lastSLPrice = null, lastSLIdx = null;
+            const tr = Math.max(
+                high - low,
+                Math.abs(high - prevClose),
+                Math.abs(low - prevClose)
+            );
+            trs.push(tr);
 
-        for (let i = swingLen; i < klines.length; i++) {
-            if (ph[i - swingLen] !== null) {
-                lastSHPrice = ph[i - swingLen];
-                lastSHIdx = i - swingLen;
+            if (i >= period) {
+                const slice = trs.slice(i - period, i);
+                atr[i] = slice.reduce((a, b) => a + b, 0) / period;
             }
-            if (pl[i - swingLen] !== null) {
-                lastSLPrice = pl[i - swingLen];
-                lastSLIdx = i - swingLen;
-            }
+        }
+        return atr;
+    }
 
-            let bosBear = lastSLPrice !== null && i > lastSLIdx && klines[i].close < lastSLPrice && klines[i - 1].close >= lastSLPrice;
-            let bosBull = lastSHPrice !== null && i > lastSHIdx && klines[i].close > lastSHPrice && klines[i - 1].close <= lastSHPrice;
+    function analyzeSymbol(symbol, klines, config) {
+        const { slMult, tpMult, dispMult } = config;
+        if (!klines || klines.length < 50) return [];
 
-            if (bosBear) {
-                let fromIdx = lastSLIdx;
-                let toIdx = i - 1;
-                let { poc, touches, bullVol, bearVol, totVol } = TechnicalAnalysis.findPOC(klines, fromIdx, toIdx);
+        const atr = calculateATR(klines, 14);
+        const lastIdx = klines.length - 1;
+        const currentATR = atr[lastIdx];
+        const currentPrice = klines[lastIdx].close;
+        let foundOBs = [];
 
-                if (poc !== null) {
-                    let bestIdx = null;
-                    let runMaxHigh = -Infinity;
+        // Scan backwards for recent pivot setups
+        for (let i = klines.length - 20; i < klines.length - 2; i++) {
+            const pivotHigh = klines[i].high > klines[i - 1].high && klines[i].high > klines[i + 1].high;
+            const pivotLow = klines[i].low < klines[i - 1].low && klines[i].low < klines[i + 1].low;
 
-                    for (let idx = toIdx; idx >= fromIdx; idx--) {
-                        runMaxHigh = Math.max(runMaxHigh, klines[idx].high);
-                        if (klines[idx].low <= poc && klines[idx].high >= poc && klines[idx].high === runMaxHigh) {
-                            bestIdx = idx;
-                        }
+            if (!pivotHigh && !pivotLow) continue;
+
+            const atrAtPivot = atr[i] || currentATR;
+
+            // --- BEARISH OB (SHORT) ---
+            if (pivotHigh) {
+                // Correct Displacement Math: Expansion down from pivot high to current price
+                const disp = klines[i].high - currentPrice;
+                if (disp >= (atrAtPivot * dispMult)) {
+                    const top = klines[i].high;
+                    const bot = klines[i].low;
+                    const mid = (top + bot) / 2;
+
+                    // CORRECTED TARGETS: SL is ABOVE pivot high, TP is BELOW entry
+                    const sl = top + (currentATR * slMult);
+                    const tp = mid - (currentATR * tpMult);
+
+                    // CORRECTED VOLUME DELTA: Exclusively measured on OB candle [i]
+                    const obVol = klines[i].volume;
+                    const obTakerBuy = klines[i].takerBuyVol;
+                    const buyPct = obVol > 0 ? (obTakerBuy / obVol) * 100 : 50;
+
+                    let touches = 0;
+                    let mitigated = false;
+                    for (let j = i + 1; j <= lastIdx; j++) {
+                        if (klines[j].high >= bot && klines[j].low <= top) touches++;
+                        if (klines[j].high > top) { mitigated = true; break; }
                     }
 
-                    if (bestIdx !== null) {
-                        let disp = klines[bestIdx].high - klines[lastSLIdx].low;
-                        let atrAtPivot = atr[lastSLIdx] || atr[i];
-
-                        if (disp >= atrAtPivot * dispMult) {
-                            let top = klines[bestIdx].high;
-                            let bot = klines[bestIdx].low;
-                            let mid = (top + bot) / 2;
-                            let bullPct = totVol > 0 ? (bullVol / totVol) * 100 : 50;
-
-                            activeOBs.push({
-                                symbol,
-                                isBull: false,
-                                top,
-                                bot,
-                                mid,
-                                tp: mid - atr[i] * tpMult,
-                                sl: top + atr[i] * slMult,
-                                bullPct: bullPct.toFixed(1),
-                                touches,
-                                dispRatio: (disp / atrAtPivot).toFixed(2),
-                                createdIdx: i,
-                                active: true
-                            });
-                        }
-                    }
-                }
-                lastSLPrice = null;
-                lastSLIdx = null;
-            }
-
-            if (bosBull) {
-                let fromIdx = lastSHIdx;
-                let toIdx = i - 1;
-                let { poc, touches, bullVol, bearVol, totVol } = TechnicalAnalysis.findPOC(klines, fromIdx, toIdx);
-
-                if (poc !== null) {
-                    let bestIdx = null;
-                    let runMinLow = Infinity;
-
-                    for (let idx = toIdx; idx >= fromIdx; idx--) {
-                        runMinLow = Math.min(runMinLow, klines[idx].low);
-                        if (klines[idx].low <= poc && klines[idx].high >= poc && klines[idx].low === runMinLow) {
-                            bestIdx = idx;
-                        }
-                    }
-
-                    if (bestIdx !== null) {
-                        let disp = klines[lastSHIdx].high - klines[bestIdx].low;
-                        let atrAtPivot = atr[lastSHIdx] || atr[i];
-
-                        if (disp >= atrAtPivot * dispMult) {
-                            let top = klines[bestIdx].high;
-                            let bot = klines[bestIdx].low;
-                            let mid = (top + bot) / 2;
-                            let bullPct = totVol > 0 ? (bullVol / totVol) * 100 : 50;
-
-                            activeOBs.push({
-                                symbol,
-                                isBull: true,
-                                top,
-                                bot,
-                                mid,
-                                tp: mid + atr[i] * tpMult,
-                                sl: bot - atr[i] * slMult,
-                                bullPct: bullPct.toFixed(1),
-                                touches,
-                                dispRatio: (disp / atrAtPivot).toFixed(2),
-                                createdIdx: i,
-                                active: true
-                            });
-                        }
+                    if (!mitigated) {
+                        foundOBs.push({
+                            symbol,
+                            type: 'BEARISH',
+                            isBull: false,
+                            top, bot, entry: mid, sl, tp,
+                            rr: ((mid - tp) / (sl - mid)).toFixed(1),
+                            buyPct: buyPct.toFixed(1),
+                            dispRatio: (disp / atrAtPivot).toFixed(2),
+                            touches,
+                            isTesting: currentPrice >= bot && currentPrice <= top
+                        });
                     }
                 }
-                lastSHPrice = null;
-                lastSHIdx = null;
             }
 
-            let currClose = klines[i].close;
-            let currHigh = klines[i].high;
-            let currLow = klines[i].low;
+            // --- BULLISH OB (LONG) ---
+            if (pivotLow) {
+                // Correct Displacement Math: Expansion up from pivot low to current price
+                const disp = currentPrice - klines[i].low;
+                if (disp >= (atrAtPivot * dispMult)) {
+                    const top = klines[i].high;
+                    const bot = klines[i].low;
+                    const mid = (top + bot) / 2;
 
-            for (let ob of activeOBs) {
-                if (ob.active) {
-                    if (ob.isBull && currLow < ob.bot) ob.active = false;
-                    else if (!ob.isBull && currHigh > ob.top) ob.active = false;
+                    // CORRECTED TARGETS: SL is BELOW pivot low, TP is ABOVE entry
+                    const sl = bot - (currentATR * slMult);
+                    const tp = mid + (currentATR * tpMult);
+
+                    // CORRECTED VOLUME DELTA: Exclusively measured on OB candle [i]
+                    const obVol = klines[i].volume;
+                    const obTakerBuy = klines[i].takerBuyVol;
+                    const buyPct = obVol > 0 ? (obTakerBuy / obVol) * 100 : 50;
+
+                    let touches = 0;
+                    let mitigated = false;
+                    for (let j = i + 1; j <= lastIdx; j++) {
+                        if (klines[j].low <= top && klines[j].high >= bot) touches++;
+                        if (klines[j].low < bot) { mitigated = true; break; }
+                    }
+
+                    if (!mitigated) {
+                        foundOBs.push({
+                            symbol,
+                            type: 'BULLISH',
+                            isBull: true,
+                            top, bot, entry: mid, sl, tp,
+                            rr: ((tp - mid) / (mid - sl)).toFixed(1),
+                            buyPct: buyPct.toFixed(1),
+                            dispRatio: (disp / atrAtPivot).toFixed(2),
+                            touches,
+                            isTesting: currentPrice >= bot && currentPrice <= top
+                        });
+                    }
                 }
             }
         }
 
-        const currentPrice = klines[klines.length - 1].close;
-        const totalBars = klines.length - 1;
-
-        return activeOBs.filter(ob => ob.active).map(ob => {
-            let status = "ACTIVE";
-            let ageInBars = totalBars - ob.createdIdx;
-
-            if (ob.isBull && currentPrice <= ob.top && currentPrice >= ob.bot) status = "TESTING ZONE";
-            if (!ob.isBull && currentPrice >= ob.bot && currentPrice <= ob.top) status = "TESTING ZONE";
-
-            return { ...ob, status, ageInBars };
-        }).filter(ob => ob.ageInBars <= maxAge);
+        return foundOBs;
     }
 
-    async function runScanner() {
-        const btn = document.getElementById('btn-run');
-        const statusLbl = document.getElementById('scan-status');
-        const countLbl = document.getElementById('scan-count');
-        const tbody = document.getElementById('results-body');
-        const pbarContainer = document.getElementById('pbar-container');
-        const pbarFill = document.getElementById('pbar-fill');
+    async function startScan() {
+        const scanBtn = document.getElementById('scanBtn');
+        const statusEl = document.getElementById('status');
+        const progressBar = document.getElementById('progressBar');
+        const resultsBody = document.getElementById('resultsBody');
+        const scannedCountEl = document.getElementById('scannedCount');
+        const foundCountEl = document.getElementById('foundCount');
 
-        btn.disabled = true;
-        btn.innerHTML = `<span class="loader"></span> Scanning...`;
-        tbody.innerHTML = "";
-        pbarContainer.style.display = "block";
-        pbarFill.style.width = "0%";
+        const config = {
+            timeframe: document.getElementById('timeframe').value,
+            dispMult: parseFloat(document.getElementById('dispMult').value),
+            slMult: parseFloat(document.getElementById('slMult').value),
+            tpMult: parseFloat(document.getElementById('tpMult').value)
+        };
 
-        const symbols = document.getElementById('symbols-input').value.split(',').map(s => s.trim()).filter(s => s.length > 0);
-        const timeframe = document.getElementById('tf-select').value;
-        const swingLen = parseInt(document.getElementById('swing-len').value);
-        const dispMult = parseFloat(document.getElementById('disp-mult').value);
-        const tpMult = parseFloat(document.getElementById('tp-mult').value);
-        const slMult = parseFloat(document.getElementById('sl-mult').value);
-        const maxAge = parseInt(document.getElementById('max-age').value);
+        scanBtn.disabled = true;
+        statusEl.innerText = "Fetching market symbols...";
+        resultsBody.innerHTML = '';
+        progressBar.style.width = '0%';
 
-        let allSignals = [];
-        let batchSize = 10;
-        let processed = 0;
+        const symbols = await fetchUSDTMarketSymbols();
+        if (symbols.length === 0) {
+            statusEl.innerText = "Failed to load symbols.";
+            scanBtn.disabled = false;
+            return;
+        }
+
+        statusEl.innerText = `Scanning ${symbols.length} USDT Perpetual Pairs...`;
+
+        let scanned = 0;
+        let allOBs = [];
+        const batchSize = 8;
 
         for (let i = 0; i < symbols.length; i += batchSize) {
-            const chunk = symbols.slice(i, i + batchSize);
-            const promises = chunk.map(symbol => 
-                analyzeSymbol(symbol, timeframe, swingLen, dispMult, tpMult, slMult, maxAge)
-                    .catch(() => [])
-            );
+            const batch = symbols.slice(i, i + batchSize);
+            const batchPromises = batch.map(async (symbol) => {
+                const klines = await fetchKlines(symbol, config.timeframe);
+                if (klines) {
+                    return analyzeSymbol(symbol, klines, config);
+                }
+                return [];
+            });
 
-            const results = await Promise.all(promises);
-            results.forEach(sigs => allSignals.push(...sigs));
+            const results = await Promise.all(batchPromises);
+            results.forEach(obs => allOBs.push(...obs));
 
-            processed += chunk.length;
-            let pct = Math.min(100, Math.round((processed / symbols.length) * 100));
-            pbarFill.style.width = `${pct}%`;
-            statusLbl.innerText = `Scanning ${processed}/${symbols.length} markets (${pct}%)...`;
+            scanned += batch.length;
+            scannedCountEl.innerText = scanned;
+            foundCountEl.innerText = allOBs.length;
+            progressBar.style.width = `${Math.min(100, (scanned / symbols.length) * 100)}%`;
+
+            // Rate-limit throttle delay (80ms between batches)
+            await sleep(80);
         }
 
-        // Sort: "TESTING ZONE" first, then by freshest (lowest ageInBars)
-        allSignals.sort((a, b) => {
-            if (a.status === "TESTING ZONE" && b.status !== "TESTING ZONE") return -1;
-            if (a.status !== "TESTING ZONE" && b.status === "TESTING ZONE") return 1;
-            return a.ageInBars - b.ageInBars;
-        });
+        // Sort setups: Prioritize setups currently in the "TESTING ZONE"
+        allOBs.sort((a, b) => b.isTesting - a.isTesting || b.dispRatio - a.dispRatio);
 
-        for (let sig of allSignals) {
-            const tr = document.createElement('tr');
-            const isBull = sig.isBull;
-            const typeBadge = isBull 
-                ? `<span class="badge badge-bull">BULLISH OB (LONG)</span>` 
-                : `<span class="badge badge-bear">BEARISH OB (SHORT)</span>`;
+        renderResults(allOBs);
+        statusEl.innerText = "Scan Complete";
+        scanBtn.disabled = false;
+    }
 
-            const statusBadge = sig.status === 'TESTING ZONE'
-                ? `<span class="badge badge-testing">TESTING ZONE</span>`
-                : `<span style="color: var(--text-primary); font-weight:600;">ACTIVE</span>`;
-
-            tr.innerHTML = `
-                <td><strong>${sig.symbol}</strong></td>
-                <td>${typeBadge}</td>
-                <td><strong>${sig.ageInBars}</strong> bars ago</td>
-                <td>${sig.top.toFixed(4)} - ${sig.bot.toFixed(4)}</td>
-                <td><strong>${sig.mid.toFixed(4)}</strong></td>
-                <td class="val-bull">${sig.tp.toFixed(4)}</td>
-                <td class="val-bear">${sig.sl.toFixed(4)}</td>
-                <td>
-                    <div style="display:flex; align-items:center; gap:6px;">
-                        <span>${sig.bullPct}%</span>
-                        <div class="delta-bar-container">
-                            <div class="delta-bar-fill" style="width: ${sig.bullPct}%"></div>
-                        </div>
-                    </div>
-                </td>
-                <td>${sig.touches}</td>
-                <td>${sig.dispRatio}x ATR</td>
-                <td>${statusBadge}</td>
-            `;
-            tbody.appendChild(tr);
+    function renderResults(obs) {
+        const tbody = document.getElementById('resultsBody');
+        if (obs.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="11" style="text-align:center; padding: 30px;">No unmitigated order blocks found matching criteria.</td></tr>`;
+            return;
         }
 
-        if (allSignals.length === 0) {
-            tbody.innerHTML = `
-                <tr>
-                    <td colspan="11" style="text-align: center; color: var(--text-secondary); padding: 30px;">
-                        No order blocks found within the last ${maxAge} bars matching your displacement criteria. Try increasing "Max OB Age".
-                    </td>
-                </tr>
-            `;
-        }
-
-        btn.disabled = false;
-        btn.innerHTML = "Run Scanner";
-        pbarContainer.style.display = "none";
-        statusLbl.innerText = "Scan completed successfully.";
-        countLbl.innerText = `${allSignals.length} Fresh Signals Found`;
-        document.getElementById('last-updated').innerText = `Last Updated: ${new Date().toLocaleTimeString()}`;
+        tbody.innerHTML = obs.map(ob => `
+            <tr>
+                <td><strong>${ob.symbol}</strong></td>
+                <td><span class="badge ${ob.isBull ? 'badge-bull' : 'badge-bear'}">${ob.type}</span></td>
+                <td>${ob.isTesting ? '<span class="badge badge-testing">IN ZONE</span>' : '<span style="color:#64748b">Approaching</span>'}</td>
+                <td>${ob.bot.toFixed(4)} - ${ob.top.toFixed(4)}</td>
+                <td><strong>${ob.entry.toFixed(4)}</strong></td>
+                <td style="color: var(--bearish-color);">${ob.sl.toFixed(4)}</td>
+                <td style="color: var(--bullish-color);">${ob.tp.toFixed(4)}</td>
+                <td>1 : ${ob.rr}</td>
+                <td>${ob.buyPct}%</td>
+                <td>${ob.dispRatio}x ATR</td>
+                <td>${ob.touches}</td>
+            </tr>
+        `).map(x => x).join('');
     }
 </script>
 
