@@ -3,19 +3,22 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Futures Momentum Scanner</title>
-  <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+  <title>Binance Futures Institutional Scanner</title>
+  <!-- Lightweight Charts Library -->
+  <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
   <style>
     :root {
       --bg: #0b0e11;
       --card: #181a20;
       --border: #2b313a;
       --text: #eaecef;
+      --text-muted: #848e9c;
       --green: #0ecb81;
       --red: #f6465d;
+      --accent: #f0b90b;
     }
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       background-color: var(--bg);
       color: var(--text);
       margin: 0;
@@ -25,13 +28,24 @@
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 20px;
+      padding-bottom: 16px;
       border-bottom: 1px solid var(--border);
+    }
+    .disclaimer {
+      background: rgba(240, 185, 11, 0.1);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      padding: 10px 14px;
+      border-radius: 6px;
+      margin: 16px 0;
+      font-size: 0.85rem;
+      line-height: 1.4;
     }
     .controls {
       display: flex;
-      gap: 15px;
-      margin: 20px 0;
+      gap: 12px;
+      margin-bottom: 20px;
+      align-items: center;
     }
     select, button {
       background: var(--card);
@@ -41,13 +55,18 @@
       border-radius: 6px;
       cursor: pointer;
       font-weight: 600;
+      font-size: 0.9rem;
     }
-    button:hover {
-      border-color: var(--green);
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    button:hover:not(:disabled) {
+      border-color: var(--accent);
     }
     .grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
       gap: 16px;
     }
     .card {
@@ -55,12 +74,14 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
     }
     .card-header {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 12px;
     }
     .symbol {
       font-size: 1.2rem;
@@ -70,26 +91,45 @@
       padding: 4px 8px;
       border-radius: 4px;
       font-weight: bold;
-      font-size: 0.85rem;
+      font-size: 0.8rem;
     }
     .badge.long { background: rgba(14, 203, 129, 0.2); color: var(--green); }
     .badge.short { background: rgba(246, 70, 93, 0.2); color: var(--red); }
     .metrics {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 8px;
-      font-size: 0.9rem;
+      gap: 6px;
+      font-size: 0.88rem;
     }
     .val-long { color: var(--green); font-weight: bold; }
     .val-short { color: var(--red); font-weight: bold; }
-    #status { color: #848e9c; font-size: 0.9rem; }
+    .val-neutral { color: var(--text-muted); }
+    .chart-container {
+      width: 100%;
+      height: 180px;
+      margin-top: 8px;
+      border-radius: 4px;
+      overflow: hidden;
+      background: #000;
+    }
+    #status { color: var(--text-muted); font-size: 0.9rem; }
+    .empty-msg {
+      grid-column: 1 / -1;
+      text-align: center;
+      padding: 40px;
+      color: var(--text-muted);
+    }
   </style>
 </head>
 <body>
 
   <div class="header">
-    <h2>Binance Futures Scanner</h2>
-    <div id="status">Status: Idle</div>
+    <h2>Binance Futures Scanner v2.0</h2>
+    <div id="status">Status: Ready</div>
+  </div>
+
+  <div class="disclaimer">
+    <strong>Risk Notice:</strong> Signals are derived strictly from closed candles. R:R figures do not account for slippage, exchange fees, dynamic funding rates, or liquidation mechanics.
   </div>
 
   <div class="controls">
@@ -97,82 +137,147 @@
       <option value="30m" selected>30m Timeframe</option>
       <option value="4h">4h Timeframe</option>
     </select>
-    <button onclick="startScan()">Run Full Scan</button>
+    <button id="scanBtn" onclick="startScan()">Run Full Scan</button>
   </div>
 
   <div class="grid" id="signals"></div>
 
   <script>
     const BINANCE_BASE = 'https://fapi.binance.com';
+    let isScanning = false;
+    let symbolFilters = new Map();
 
-    // Calculate Average True Range (ATR)
-    function calculateATR(candles, period = 14) {
-      let trs = [];
-      for (let i = 1; i < candles.length; i++) {
-        const high = candles[i].high;
-        const low = candles[i].low;
-        const prevClose = candles[i - 1].close;
-        const tr = Math.max(high - low, Math.abs(high - prevClose), Math.abs(low - prevClose));
-        trs.push(tr);
+    // Robust fetch wrapper
+    async function fetchJson(url) {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
+      const data = await res.json();
+      if (data && !Array.isArray(data) && data.code) {
+        throw new Error(data.msg || 'Binance API Error');
       }
-      const slice = trs.slice(-period);
-      return slice.reduce((a, b) => a + b, 0) / period;
+      return data;
     }
 
-    // Calculate Exponential Moving Average (EMA)
-    function calculateEMA(candles, period) {
-      const k = 2 / (period + 1);
-      let ema = candles[0].close;
+    // Format price according to exchange PRICE_FILTER tickSize
+    function formatTick(price, symbol) {
+      const filter = symbolFilters.get(symbol);
+      if (!filter) return price.toFixed(4);
+      const precision = filter.precision;
+      return Number(price).toFixed(precision);
+    }
+
+    // Calculate Precision digits from tickSize string (e.g. "0.0010000" -> 3)
+    function getPrecision(tickSizeStr) {
+      const parseFloatStr = parseFloat(tickSizeStr).toString();
+      if (parseFloatStr.includes('.')) {
+        return parseFloatStr.split('.')[1].length;
+      }
+      return 0;
+    }
+
+    // Load Exchange Rules (Precision & Tick Size)
+    async function loadExchangeRules() {
+      const data = await fetchJson(`${BINANCE_BASE}/fapi/v1/exchangeInfo`);
+      symbolFilters.clear();
+      data.symbols.forEach(s => {
+        if (s.quoteAsset === 'USDT' && s.status === 'TRADING') {
+          const priceFilter = s.filters.find(f => f.filterType === 'PRICE_FILTER');
+          const tickSize = priceFilter ? priceFilter.tickSize : '0.0001';
+          symbolFilters.set(s.symbol, {
+            tickSize: parseFloat(tickSize),
+            precision: getPrecision(tickSize)
+          });
+        }
+      });
+    }
+
+    // Wilder's Average True Range (ATR)
+    function calculateATR(candles, period = 14) {
+      if (candles.length < period + 1) return null;
+      let trs = [];
       for (let i = 1; i < candles.length; i++) {
+        const h = candles[i].high, l = candles[i].low, pc = candles[i - 1].close;
+        trs.push(Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc)));
+      }
+      if (trs.length < period) return null;
+
+      // Seed with SMA
+      let atr = trs.slice(0, period).reduce((a, b) => a + b, 0) / period;
+      // Wilder's Smoothing
+      for (let i = period; i < trs.length; i++) {
+        atr = (atr * (period - 1) + trs[i]) / period;
+      }
+      return atr;
+    }
+
+    // Standard Exponential Moving Average (EMA seeded with SMA)
+    function calculateEMA(candles, period) {
+      if (candles.length < period) return null;
+      let sum = 0;
+      for (let i = 0; i < period; i++) sum += candles[i].close;
+      let ema = sum / period;
+      const k = 2 / (period + 1);
+
+      for (let i = period; i < candles.length; i++) {
         ema = candles[i].close * k + ema * (1 - k);
       }
       return ema;
     }
 
-    async function getUsdtPairs() {
-      const res = await fetch(`${BINANCE_BASE}/fapi/v1/exchangeInfo`);
-      const data = await res.json();
-      return data.symbols
-        .filter(s => s.quoteAsset === 'USDT' && s.status === 'TRADING')
-        .map(s => s.symbol);
-    }
-
     async function analyzeSymbol(symbol, timeframe) {
       try {
-        const res = await fetch(`${BINANCE_BASE}/fapi/v1/klines?symbol=${symbol}&interval=${timeframe}&limit=50`);
-        const raw = await res.json();
+        const raw = await fetchJson(`${BINANCE_BASE}/fapi/v1/klines?symbol=${symbol}&interval=${timeframe}&limit=60`);
+        if (!Array.isArray(raw) || raw.length < 35) return null;
+
         const candles = raw.map(c => ({
+          time: Math.floor(c[0] / 1000),
           open: parseFloat(c[1]),
           high: parseFloat(c[2]),
           low: parseFloat(c[3]),
           close: parseFloat(c[4]),
+          volume: parseFloat(c[5])
         }));
 
-        const last = candles[candles.length - 1];
-        const prev = candles[candles.length - 2];
+        // Exclude in-progress candle to prevent recalculation instability
+        const closed = candles.slice(0, -1);
+        const last = closed[closed.length - 1];
+        const prev = closed[closed.length - 2];
 
-        const emaFast = calculateEMA(candles, 2);
-        const emaSlow = calculateEMA(candles, 5);
-        const atr = calculateATR(candles, 14);
+        // Indicators
+        const emaFastCurr = calculateEMA(closed, 9);
+        const emaSlowCurr = calculateEMA(closed, 21);
+        const emaFastPrev = calculateEMA(closed.slice(0, -1), 9);
+        const emaSlowPrev = calculateEMA(closed.slice(0, -1), 21);
+        const atr = calculateATR(closed, 14);
 
-        const isBullAccel = (emaFast > emaSlow) && (last.close > prev.close);
-        const isBearAccel = (emaFast < emaSlow) && (last.close < prev.close);
+        if (!emaFastCurr || !emaSlowCurr || !atr) return null;
 
-        if (isBullAccel) {
+        // Volume Filter
+        const avgVol = closed.slice(-20).reduce((a, b) => a + b.volume, 0) / 20;
+        const isVolConfirmed = last.volume > (avgVol * 1.1);
+
+        // Signal Triggers (EMA Crossover + Volume Confirmation)
+        const isBullCross = (emaFastPrev <= emaSlowPrev) && (emaFastCurr > emaSlowCurr);
+        const isBearCross = (emaFastPrev >= emaSlowPrev) && (emaFastCurr < emaSlowCurr);
+
+        if ((isBullCross || isBearCross) && isVolConfirmed) {
+          const type = isBullCross ? 'LONG' : 'SHORT';
+          const sl = isBullCross ? (last.close - (atr * 2)) : (last.close + (atr * 2));
+          const tp = isBullCross ? (last.close + (atr * 3)) : (last.close - (atr * 3));
+          
+          // Momentum Score for Sorting
+          const volRatio = (last.volume / avgVol).toFixed(2);
+          const score = volRatio * 10;
+
           return {
             symbol,
-            type: 'LONG',
-            price: last.close,
-            sl: last.close - (atr * 2),
-            tp: last.close + (atr * 3)
-          };
-        } else if (isBearAccel) {
-          return {
-            symbol,
-            type: 'SHORT',
-            price: last.close,
-            sl: last.close + (atr * 2),
-            tp: last.close - (atr * 3)
+            type,
+            score,
+            volRatio,
+            lastClose: last.close,
+            sl,
+            tp,
+            chartData: closed.slice(-30)
           };
         }
       } catch (e) {
@@ -182,55 +287,105 @@
     }
 
     async function startScan() {
+      if (isScanning) return;
+      isScanning = true;
+
+      const scanBtn = document.getElementById('scanBtn');
       const status = document.getElementById('status');
       const grid = document.getElementById('signals');
       const tf = document.getElementById('timeframe').value;
 
+      scanBtn.disabled = true;
       grid.innerHTML = '';
-      status.innerText = 'Fetching USDT-M markets...';
+      status.textContent = 'Loading Binance exchange parameters...';
 
-      const pairs = await getUsdtPairs();
-      status.innerText = `Scanning ${pairs.length} pairs on ${tf}...`;
+      try {
+        await loadExchangeRules();
+        const pairs = Array.from(symbolFilters.keys());
+        status.textContent = `Scanning ${pairs.length} markets on ${tf}...`;
 
-      let count = 0;
-      // Scan top volume pairs concurrently in batches
-      const batchSize = 10;
-      for (let i = 0; i < pairs.length; i += batchSize) {
-        const batch = pairs.slice(i, i + batchSize);
-        const results = await Promise.all(batch.map(p => analyzeSymbol(p, tf)));
-        
-        results.forEach(sig => {
-          if (sig) renderSignal(sig);
-        });
+        let signals = [];
+        const batchSize = 12;
 
-        count += batch.length;
-        status.innerText = `Scanned ${count}/${pairs.length} pairs...`;
+        for (let i = 0; i < pairs.length; i += batchSize) {
+          const batch = pairs.slice(i, i + batchSize);
+          const results = await Promise.all(batch.map(p => analyzeSymbol(p, tf)));
+          signals.push(...results.filter(Boolean));
+          status.textContent = `Scanned ${Math.min(i + batchSize, pairs.length)}/${pairs.length} markets...`;
+        }
+
+        // Sort signals by Volume Multiplier Score
+        signals.sort((a, b) => b.score - a.score);
+
+        if (signals.length === 0) {
+          grid.innerHTML = '<div class="empty-msg">No volume-backed crossover signals detected.</div>';
+        } else {
+          signals.forEach(sig => renderCard(sig));
+        }
+
+        status.textContent = `Scan completed at ${new Date().toLocaleTimeString()}`;
+      } catch (err) {
+        status.textContent = `Scan aborted: ${err.message}`;
+      } finally {
+        isScanning = false;
+        scanBtn.disabled = false;
       }
-
-      status.innerText = `Scan complete at ${new Date().toLocaleTimeString()}`;
     }
 
-    function renderSignal(sig) {
+    function renderCard(sig) {
       const grid = document.getElementById('signals');
       const card = document.createElement('div');
       card.className = 'card';
-      
+
       const isLong = sig.type === 'LONG';
       const badgeClass = isLong ? 'badge long' : 'badge short';
-      
+      const chartId = `chart-${sig.symbol}`;
+
+      // Build DOM Safely
       card.innerHTML = `
         <div class="card-header">
-          <span class="symbol">${sig.symbol}</span>
-          <span class="${badgeClass}">${sig.type}</span>
+          <span class="symbol"></span>
+          <span class="${badgeClass}"></span>
         </div>
         <div class="metrics">
-          <div>Entry: <strong>${sig.price}</strong></div>
-          <div>Stop Loss: <span class="val-short">${sig.sl.toFixed(4)}</span></div>
-          <div>Take Profit: <span class="val-green">${sig.tp.toFixed(4)}</span></div>
-          <div>R:R Ratio: <strong>1:1.5</strong></div>
+          <div>Last Close: <strong class="val-close"></strong></div>
+          <div>Vol Ratio: <strong class="val-vol"></strong></div>
+          <div>Stop Loss: <span class="val-short val-sl"></span></div>
+          <div>Take Profit: <span class="val-long val-tp"></span></div>
         </div>
+        <div class="chart-container" id="${chartId}"></div>
       `;
+
+      card.querySelector('.symbol').textContent = sig.symbol;
+      card.querySelector(`.${badgeClass.replace(' ', '.')}`).textContent = `${sig.type} (Score: ${sig.score.toFixed(1)})`;
+      card.querySelector('.val-close').textContent = formatTick(sig.lastClose, sig.symbol);
+      card.querySelector('.val-vol').textContent = `${sig.volRatio}x`;
+      card.querySelector('.val-sl').textContent = formatTick(sig.sl, sig.symbol);
+      card.querySelector('.val-tp').textContent = formatTick(sig.tp, sig.symbol);
+
       grid.appendChild(card);
+
+      // Render Lightweight Chart
+      setTimeout(() => {
+        const container = document.getElementById(chartId);
+        if (!container || typeof LightweightCharts === 'undefined') return;
+
+        const chart = LightweightCharts.createChart(container, {
+          layout: { backgroundColor: '#000000', textColor: '#848e9c' },
+          grid: { vertLines: { visible: false }, horzLines: { color: '#1e222d' } },
+          timeScale: { timeVisible: true, secondsVisible: false },
+          rightPriceScale: { borderVisible: false }
+        });
+
+        const candleSeries = chart.addCandlestickSeries({
+          upColor: '#0ecb81', downColor: '#f6465d',
+          borderUpColor: '#0ecb81', borderDownColor: '#f6465d',
+          wickUpColor: '#0ecb81', wickDownColor: '#f6465d'
+        });
+
+        candleSeries.setData(sig.chartData);
+        chart.timeScale().fitContent();
+      }, 50);
     }
   </script>
 </body>
