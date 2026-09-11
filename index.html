@@ -1,95 +1,145 @@
-<!DOCTYPE html>
+NOW? <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Multi-Strategy Crypto Scanner Dashboard</title>
+    <title>Flux & Stat Volume Delta Futures Scanner</title>
     <style>
         :root {
-            --bg-color: #0b0e11;
-            --card-bg: #1e2329;
-            --border-color: #2b313a;
-            --text-main: #eaecef;
-            --text-muted: #848e9c;
-            --bullish-color: #0ecb81;
-            --bearish-color: #f6465d;
-            --accent-color: #f0b90b;
-        }
-
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            --bg-color: #0b0e14;
+            --panel-bg: #151921;
+            --border-color: #232733;
+            --text-primary: #e1e3e6;
+            --text-secondary: #848e9c;
+            --bull-color: #0ecb81;
+            --bear-color: #f6465d;
+            --accent-color: #2962ff;
+            --accent-hover: #1e53e5;
+            --warn-color: #ffb000;
         }
 
         body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
+            margin: 0;
             padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-size: 13px;
+        }
+
+        .container {
+            max-width: 1500px;
+            margin: 0 auto;
         }
 
         .header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding-bottom: 20px;
-            border-bottom: 1px solid var(--border-color);
             margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
         }
 
         .header h1 {
-            font-size: 1.5rem;
-            color: var(--accent-color);
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .controls-panel {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+            gap: 12px;
+            align-items: end;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .input-group label {
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .input-group input, .input-group select {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 10px;
+            border-radius: 4px;
+            outline: none;
+            font-size: 12px;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            border-color: var(--accent-color);
+        }
+
+        .btn-group {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            background-color: var(--accent-color);
+            color: #ffffff;
+            border: none;
+            padding: 9px 14px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            height: 35px;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+
+        .btn:hover { background-color: var(--accent-hover); }
+        .btn-secondary { background-color: #2b313a; color: var(--text-primary); }
+        .btn-secondary:hover { background-color: #363d47; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .progress-bar-container {
+            width: 100%;
+            height: 4px;
+            background-color: var(--border-color);
+            border-radius: 2px;
+            margin-bottom: 15px;
+            overflow: hidden;
+            display: none;
+        }
+
+        .progress-bar-fill {
+            height: 100%;
+            background-color: var(--accent-color);
+            width: 0%;
+            transition: width 0.1s ease;
         }
 
         .status-bar {
-            font-size: 0.85rem;
-            color: var(--text-muted);
-        }
-
-        .controls {
+            margin-bottom: 15px;
+            color: var(--text-secondary);
+            font-size: 12px;
             display: flex;
-            gap: 15px;
-            margin-bottom: 20px;
-            align-items: center;
-        }
-
-        button {
-            background-color: var(--accent-color);
-            color: #000;
-            border: none;
-            padding: 10px 18px;
-            font-weight: bold;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: opacity 0.2s;
-        }
-
-        button:hover {
-            opacity: 0.9;
-        }
-
-        .filter-group {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
-
-        select {
-            background-color: var(--card-bg);
-            color: var(--text-main);
-            border: 1px solid var(--border-color);
-            padding: 8px;
-            border-radius: 4px;
+            justify-content: space-between;
         }
 
         .table-container {
-            background-color: var(--card-bg);
-            border-radius: 6px;
+            background-color: var(--panel-bg);
             border: 1px solid var(--border-color);
+            border-radius: 6px;
             overflow-x: auto;
         }
 
@@ -97,93 +147,124 @@
             width: 100%;
             border-collapse: collapse;
             text-align: left;
-            font-size: 0.9rem;
         }
 
         th {
-            background-color: #161a1e;
-            color: var(--text-muted);
-            padding: 12px 16px;
+            background-color: rgba(255, 255, 255, 0.02);
+            color: var(--text-secondary);
+            padding: 12px 14px;
             font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
             border-bottom: 1px solid var(--border-color);
         }
 
         td {
-            padding: 14px 16px;
+            padding: 12px 14px;
             border-bottom: 1px solid var(--border-color);
+            font-size: 12px;
         }
 
-        tr:hover {
-            background-color: rgba(255, 255, 255, 0.02);
-        }
+        tr:hover { background-color: rgba(255, 255, 255, 0.02); }
 
         .badge {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-weight: bold;
-            font-size: 0.75rem;
-            text-align: center;
-        }
-
-        .badge-bullish {
-            background-color: rgba(14, 203, 129, 0.15);
-            color: var(--bullish-color);
-            border: 1px solid var(--bullish-color);
-        }
-
-        .badge-bearish {
-            background-color: rgba(246, 70, 93, 0.15);
-            color: var(--bearish-color);
-            border: 1px solid var(--bearish-color);
-        }
-
-        .badge-neutral {
-            background-color: rgba(132, 142, 156, 0.15);
-            color: var(--text-muted);
-            border: 1px solid var(--text-muted);
-        }
-
-        .mtf-matrix {
-            display: flex;
-            gap: 4px;
-        }
-
-        .mtf-dot {
-            width: 22px;
-            height: 22px;
+            padding: 3px 8px;
             border-radius: 3px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.65rem;
-            font-weight: bold;
+            font-weight: 600;
+            font-size: 10px;
+            display: inline-block;
+            text-transform: uppercase;
         }
 
-        .dot-green { background-color: var(--bullish-color); color: #000; }
-        .dot-red { background-color: var(--bearish-color); color: #fff; }
+        .badge-bull { background-color: rgba(14, 203, 129, 0.15); color: var(--bull-color); border: 1px solid var(--bull-color); }
+        .badge-bear { background-color: rgba(246, 70, 93, 0.15); color: var(--bear-color); border: 1px solid var(--bear-color); }
+        .badge-testing { background-color: rgba(255, 176, 0, 0.15); color: var(--warn-color); border: 1px solid var(--warn-color); }
 
-        .price-up { color: var(--bullish-color); }
-        .price-down { color: var(--bearish-color); }
+        .val-bull { color: var(--bull-color); font-weight: 600; }
+        .val-bear { color: var(--bear-color); font-weight: 600; }
+
+        .delta-bar-container {
+            width: 80px;
+            height: 10px;
+            background-color: var(--bear-color);
+            border-radius: 2px;
+            overflow: hidden;
+            display: flex;
+        }
+
+        .delta-bar-fill { height: 100%; background-color: var(--bull-color); }
+
+        .loader {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 6px;
+        }
+
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
+<div class="container">
     <div class="header">
-        <h1>Trading Strategy Scanner</h1>
-        <div class="status-bar" id="lastUpdated">Status: Ready to scan</div>
+        <h1>Flux & Stat Volume Delta Scanner (Binance Futures)</h1>
+        <div id="last-updated" style="color: var(--text-secondary); font-size: 12px;"></div>
     </div>
 
-    <div class="controls">
-        <button id="scanBtn" onclick="runScan()">Run Live Market Scan</button>
-        <div class="filter-group">
-            <label for="signalFilter">Filter Signal:</label>
-            <select id="signalFilter" onchange="filterResults()">
-                <option value="ALL">Show All Symbols</option>
-                <option value="BULLISH">Bullish Only</option>
-                <option value="BEARISH">Bearish Only</option>
+    <div class="controls-panel">
+        <div class="input-group" style="grid-column: span 2;">
+            <label>Symbols (USDT-M Futures)</label>
+            <div class="btn-group">
+                <input type="text" id="symbols-input" value="BTCUSDT, ETHUSDT, SOLUSDT, TAOUSDT, XRPUSDT, BONKUSDT, LITUSDT, RVNUSDT" style="flex: 1;">
+                <button class="btn btn-secondary" onclick="fetchAllFuturesPairs()">Load All Pairs</button>
+            </div>
+        </div>
+        <div class="input-group">
+            <label>Timeframe</label>
+            <select id="tf-select">
+                <option value="1m">1 Minute</option>
+                <option value="5m">5 Minutes</option>
+                <option value="15m" selected>15 Minutes</option>
+                <option value="1h">1 Hour</option>
+                <option value="4h">4 Hours</option>
+                <option value="1d">1 Day</option>
             </select>
         </div>
+        <div class="input-group">
+            <label>Max OB Age (Bars)</label>
+            <input type="number" id="max-age" value="50" min="5" max="500" title="Only display order blocks created within the last X candles.">
+        </div>
+        <div class="input-group">
+            <label>Swing Length</label>
+            <input type="number" id="swing-len" value="5" min="1" max="50">
+        </div>
+        <div class="input-group">
+            <label>Displacement (ATR)</label>
+            <input type="number" id="disp-mult" value="1.5" step="0.1" min="0.5">
+        </div>
+        <div class="input-group">
+            <label>TP ATR Multiplier</label>
+            <input type="number" id="tp-mult" value="3.0" step="0.1">
+        </div>
+        <div class="input-group">
+            <label>SL ATR Multiplier</label>
+            <input type="number" id="sl-mult" value="6.0" step="0.1">
+        </div>
+        <button class="btn" id="btn-run" onclick="runScanner()">Run Scanner</button>
+    </div>
+
+    <div class="progress-bar-container" id="pbar-container">
+        <div class="progress-bar-fill" id="pbar-fill"></div>
+    </div>
+
+    <div class="status-bar">
+        <span id="scan-status">Ready. Click 'Load All Pairs' to scan every USDT Perpetual market.</span>
+        <span id="scan-count">0 Fresh Signals</span>
     </div>
 
     <div class="table-container">
@@ -191,209 +272,418 @@
             <thead>
                 <tr>
                     <th>Symbol</th>
-                    <th>Price</th>
-                    <th>24h Change</th>
-                    <th>Zero-Lag MTF Trend</th>
-                    <th>SMC Market Structure</th>
-                    <th>Order Block Volume Delta</th>
-                    <th>Overall Action</th>
+                    <th>Type</th>
+                    <th>Age</th>
+                    <th>Zone Range (Top - Bot)</th>
+                    <th>Entry Mid</th>
+                    <th>Take Profit (TP)</th>
+                    <th>Stop Loss (SL)</th>
+                    <th>Volume Delta</th>
+                    <th>POC Touches</th>
+                    <th>Displacement</th>
+                    <th>Status</th>
                 </tr>
             </thead>
-            <tbody id="scannerBody">
+            <tbody id="results-body">
                 <tr>
-                    <td colspan="7" style="text-align: center; color: var(--text-muted); padding: 30px;">
-                        Click "Run Live Market Scan" to fetch live data from Binance.
+                    <td colspan="11" style="text-align: center; color: var(--text-secondary); padding: 30px;">
+                        Set your parameters and click "Run Scanner" to scan Binance Futures markets.
                     </td>
                 </tr>
             </tbody>
         </table>
     </div>
+</div>
 
-    <script>
-        const SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "TAOUSDT", "XRPUSDT", "BONKUSDT"];
-        let scannerData = [];
+<script>
+    class TechnicalAnalysis {
+        static calcATR(klines, period = 14) {
+            let atr = new Array(klines.length).fill(0);
+            let tr = new Array(klines.length).fill(0);
 
-        async function fetchKlineData(symbol, interval = '15m', limit = 100) {
-            try {
-                const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`);
-                const data = await response.json();
-                return data.map(d => ({
-                    time: d[0],
-                    open: parseFloat(d[1]),
-                    high: parseFloat(d[2]),
-                    low: parseFloat(d[3]),
-                    close: parseFloat(d[4]),
-                    volume: parseFloat(d[5])
-                }));
-            } catch (error) {
-                console.error(`Error fetching data for ${symbol}:`, error);
-                return null;
+            for (let i = 0; i < klines.length; i++) {
+                if (i === 0) {
+                    tr[i] = klines[i].high - klines[i].low;
+                } else {
+                    const h = klines[i].high;
+                    const l = klines[i].low;
+                    const cp = klines[i - 1].close;
+                    tr[i] = Math.max(h - l, Math.abs(h - cp), Math.abs(l - cp));
+                }
             }
+
+            let sum = 0;
+            for (let i = 0; i < klines.length; i++) {
+                if (i < period) {
+                    sum += tr[i];
+                    if (i === period - 1) atr[i] = sum / period;
+                } else {
+                    atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period;
+                }
+            }
+            return atr;
         }
 
-        // Logic 1: Zero-Lag EMA & MTF Signals Calculation
-        function calculateZeroLagTrend(klines) {
-            const length = 70;
-            const lag = Math.floor((length - 1) / 2);
-            if (klines.length < length) return "NEUTRAL";
+        static findPivots(klines, swingLen) {
+            let ph = new Array(klines.length).fill(null);
+            let pl = new Array(klines.length).fill(null);
 
-            let closes = klines.map(k => k.close);
-            let lastClose = closes[closes.length - 1];
+            for (let i = swingLen; i < klines.length - swingLen; i++) {
+                let isHigh = true;
+                let isLow = true;
+
+                for (let j = 1; j <= swingLen; j++) {
+                    if (klines[i].high <= klines[i - j].high || klines[i].high <= klines[i + j].high) isHigh = false;
+                    if (klines[i].low >= klines[i - j].low || klines[i].low >= klines[i + j].low) isLow = false;
+                }
+
+                if (isHigh) ph[i] = klines[i].high;
+                if (isLow) pl[i] = klines[i].low;
+            }
+            return { ph, pl };
+        }
+
+        static findPOC(klines, fromIdx, toIdx, nBins = 40) {
+            if (fromIdx < 0 || toIdx >= klines.length || fromIdx >= toIdx) {
+                return { poc: null, touches: 0, bullVol: 0, bearVol: 0, totVol: 0 };
+            }
+
+            let minP = Infinity;
+            let maxP = -Infinity;
+
+            for (let i = fromIdx; i <= toIdx; i++) {
+                if (klines[i].low < minP) minP = klines[i].low;
+                if (klines[i].high > maxP) maxP = klines[i].high;
+            }
+
+            if (minP >= maxP) return { poc: null, touches: 0, bullVol: 0, bearVol: 0, totVol: 0 };
+
+            let step = (maxP - minP) / nBins;
+            if (step <= 0) step = 0.000001;
+
+            let diffCnt = new Array(nBins).fill(0);
+
+            for (let i = fromIdx; i <= toIdx; i++) {
+                let sBin = Math.floor((klines[i].low - minP) / step);
+                let eBin = Math.floor((klines[i].high - minP) / step);
+                sBin = Math.max(0, Math.min(nBins - 1, sBin));
+                eBin = Math.max(0, Math.min(nBins - 1, eBin));
+
+                diffCnt[sBin] += 1;
+                if (eBin + 1 < nBins) diffCnt[eBin + 1] -= 1;
+            }
+
+            let bestBin = 0;
+            let bestCnt = 0;
+            let runCnt = 0;
+
+            for (let i = 0; i < nBins; i++) {
+                runCnt += diffCnt[i];
+                if (runCnt > bestCnt) {
+                    bestCnt = runCnt;
+                    bestBin = i;
+                }
+            }
+
+            let poc = minP + (bestBin + 0.5) * step;
+
+            let touches = 0;
+            let totVol = 0;
+            let bullVol = 0;
+            let bearVol = 0;
+
+            for (let i = fromIdx; i <= toIdx; i++) {
+                if (klines[i].low <= poc && klines[i].high >= poc) {
+                    touches++;
+                    totVol += klines[i].volume;
+                    bullVol += klines[i].takerBuyVol;
+                    bearVol += (klines[i].volume - klines[i].takerBuyVol);
+                }
+            }
+
+            return { poc, touches, bullVol, bearVol, totVol };
+        }
+    }
+
+    async function fetchAllFuturesPairs() {
+        const statusLbl = document.getElementById('scan-status');
+        statusLbl.innerText = "Fetching Binance USDT-M Futures exchange info...";
+        try {
+            const res = await fetch('https://fapi.binance.com/fapi/v1/exchangeInfo');
+            if (!res.ok) throw new Error("API request failed");
+            const data = await res.json();
+            const symbols = data.symbols
+                .filter(s => s.quoteAsset === 'USDT' && s.contractType === 'PERPETUAL' && s.status === 'TRADING')
+                .map(s => s.symbol);
             
-            // Lag corrected price series
-            let lagCorrected = closes.map((c, i) => {
-                if (i < lag) return c;
-                return c + (c - closes[i - lag]);
-            });
+            document.getElementById('symbols-input').value = symbols.join(', ');
+            statusLbl.innerText = `Loaded ${symbols.length} Binance USDT-M Perpetual Pairs.`;
+        } catch (e) {
+            statusLbl.innerText = "Failed to load Binance Futures pairs. Check network connection.";
+        }
+    }
 
-            // Exponential Moving Average
-            let k = 2 / (length + 1);
-            let ema = lagCorrected[0];
-            for (let i = 1; i < lagCorrected.length; i++) {
-                ema = lagCorrected[i] * k + ema * (1 - k);
+    async function fetchFuturesKlines(symbol, interval, limit = 500) {
+        const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol.trim().toUpperCase()}&interval=${interval}&limit=${limit}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Failed to fetch ${symbol}`);
+        const data = await response.json();
+
+        return data.map(d => ({
+            time: d[0],
+            open: parseFloat(d[1]),
+            high: parseFloat(d[2]),
+            low: parseFloat(d[3]),
+            close: parseFloat(d[4]),
+            volume: parseFloat(d[5]),
+            takerBuyVol: parseFloat(d[9])
+        }));
+    }
+
+    async function analyzeSymbol(symbol, timeframe, swingLen, dispMult, tpMult, slMult, maxAge) {
+        const klines = await fetchFuturesKlines(symbol, timeframe, 500);
+        const atr = TechnicalAnalysis.calcATR(klines, 14);
+        const { ph, pl } = TechnicalAnalysis.findPivots(klines, swingLen);
+
+        let activeOBs = [];
+
+        let lastSHPrice = null, lastSHIdx = null;
+        let lastSLPrice = null, lastSLIdx = null;
+
+        for (let i = swingLen; i < klines.length; i++) {
+            if (ph[i - swingLen] !== null) {
+                lastSHPrice = ph[i - swingLen];
+                lastSHIdx = i - swingLen;
+            }
+            if (pl[i - swingLen] !== null) {
+                lastSLPrice = pl[i - swingLen];
+                lastSLIdx = i - swingLen;
             }
 
-            return lastClose > ema ? "BULLISH" : "BEARISH";
+            let bosBear = lastSLPrice !== null && i > lastSLIdx && klines[i].close < lastSLPrice && klines[i - 1].close >= lastSLPrice;
+            let bosBull = lastSHPrice !== null && i > lastSHIdx && klines[i].close > lastSHPrice && klines[i - 1].close <= lastSHPrice;
+
+            if (bosBear) {
+                let fromIdx = lastSLIdx;
+                let toIdx = i - 1;
+                let { poc, touches, bullVol, bearVol, totVol } = TechnicalAnalysis.findPOC(klines, fromIdx, toIdx);
+
+                if (poc !== null) {
+                    let bestIdx = null;
+                    let runMaxHigh = -Infinity;
+
+                    for (let idx = toIdx; idx >= fromIdx; idx--) {
+                        runMaxHigh = Math.max(runMaxHigh, klines[idx].high);
+                        if (klines[idx].low <= poc && klines[idx].high >= poc && klines[idx].high === runMaxHigh) {
+                            bestIdx = idx;
+                        }
+                    }
+
+                    if (bestIdx !== null) {
+                        let disp = klines[bestIdx].high - klines[lastSLIdx].low;
+                        let atrAtPivot = atr[lastSLIdx] || atr[i];
+
+                        if (disp >= atrAtPivot * dispMult) {
+                            let top = klines[bestIdx].high;
+                            let bot = klines[bestIdx].low;
+                            let mid = (top + bot) / 2;
+                            let bullPct = totVol > 0 ? (bullVol / totVol) * 100 : 50;
+
+                            activeOBs.push({
+                                symbol,
+                                isBull: false,
+                                top,
+                                bot,
+                                mid,
+                                tp: mid - atr[i] * tpMult,
+                                sl: top + atr[i] * slMult,
+                                bullPct: bullPct.toFixed(1),
+                                touches,
+                                dispRatio: (disp / atrAtPivot).toFixed(2),
+                                createdIdx: i,
+                                active: true
+                            });
+                        }
+                    }
+                }
+                lastSLPrice = null;
+                lastSLIdx = null;
+            }
+
+            if (bosBull) {
+                let fromIdx = lastSHIdx;
+                let toIdx = i - 1;
+                let { poc, touches, bullVol, bearVol, totVol } = TechnicalAnalysis.findPOC(klines, fromIdx, toIdx);
+
+                if (poc !== null) {
+                    let bestIdx = null;
+                    let runMinLow = Infinity;
+
+                    for (let idx = toIdx; idx >= fromIdx; idx--) {
+                        runMinLow = Math.min(runMinLow, klines[idx].low);
+                        if (klines[idx].low <= poc && klines[idx].high >= poc && klines[idx].low === runMinLow) {
+                            bestIdx = idx;
+                        }
+                    }
+
+                    if (bestIdx !== null) {
+                        let disp = klines[lastSHIdx].high - klines[bestIdx].low;
+                        let atrAtPivot = atr[lastSHIdx] || atr[i];
+
+                        if (disp >= atrAtPivot * dispMult) {
+                            let top = klines[bestIdx].high;
+                            let bot = klines[bestIdx].low;
+                            let mid = (top + bot) / 2;
+                            let bullPct = totVol > 0 ? (bullVol / totVol) * 100 : 50;
+
+                            activeOBs.push({
+                                symbol,
+                                isBull: true,
+                                top,
+                                bot,
+                                mid,
+                                tp: mid + atr[i] * tpMult,
+                                sl: bot - atr[i] * slMult,
+                                bullPct: bullPct.toFixed(1),
+                                touches,
+                                dispRatio: (disp / atrAtPivot).toFixed(2),
+                                createdIdx: i,
+                                active: true
+                            });
+                        }
+                    }
+                }
+                lastSHPrice = null;
+                lastSHIdx = null;
+            }
+
+            let currClose = klines[i].close;
+            let currHigh = klines[i].high;
+            let currLow = klines[i].low;
+
+            for (let ob of activeOBs) {
+                if (ob.active) {
+                    if (ob.isBull && currLow < ob.bot) ob.active = false;
+                    else if (!ob.isBull && currHigh > ob.top) ob.active = false;
+                }
+            }
         }
 
-        // Logic 2: Smart Money Concepts (BOS / CHoCH) Analysis
-        function calculateSMCStructure(klines) {
-            if (klines.length < 20) return { structure: "NEUTRAL", detail: "Consolidation" };
-            
-            let recentHighs = Math.max(...klines.slice(-10).map(k => k.high));
-            let recentLows = Math.min(...klines.slice(-10).map(k => k.low));
-            let lastClose = klines[klines.length - 1].close;
+        const currentPrice = klines[klines.length - 1].close;
+        const totalBars = klines.length - 1;
 
-            if (lastClose >= recentHighs) {
-                return { structure: "BULLISH", detail: "Bullish BOS / CHoCH Breakout" };
-            } else if (lastClose <= recentLows) {
-                return { structure: "BEARISH", detail: "Bearish BOS / CHoCH Breakdown" };
-            }
-            return { structure: "NEUTRAL", detail: "Inside Swing Range" };
+        return activeOBs.filter(ob => ob.active).map(ob => {
+            let status = "ACTIVE";
+            let ageInBars = totalBars - ob.createdIdx;
+
+            if (ob.isBull && currentPrice <= ob.top && currentPrice >= ob.bot) status = "TESTING ZONE";
+            if (!ob.isBull && currentPrice >= ob.bot && currentPrice <= ob.top) status = "TESTING ZONE";
+
+            return { ...ob, status, ageInBars };
+        }).filter(ob => ob.ageInBars <= maxAge);
+    }
+
+    async function runScanner() {
+        const btn = document.getElementById('btn-run');
+        const statusLbl = document.getElementById('scan-status');
+        const countLbl = document.getElementById('scan-count');
+        const tbody = document.getElementById('results-body');
+        const pbarContainer = document.getElementById('pbar-container');
+        const pbarFill = document.getElementById('pbar-fill');
+
+        btn.disabled = true;
+        btn.innerHTML = `<span class="loader"></span> Scanning...`;
+        tbody.innerHTML = "";
+        pbarContainer.style.display = "block";
+        pbarFill.style.width = "0%";
+
+        const symbols = document.getElementById('symbols-input').value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        const timeframe = document.getElementById('tf-select').value;
+        const swingLen = parseInt(document.getElementById('swing-len').value);
+        const dispMult = parseFloat(document.getElementById('disp-mult').value);
+        const tpMult = parseFloat(document.getElementById('tp-mult').value);
+        const slMult = parseFloat(document.getElementById('sl-mult').value);
+        const maxAge = parseInt(document.getElementById('max-age').value);
+
+        let allSignals = [];
+        let batchSize = 10;
+        let processed = 0;
+
+        for (let i = 0; i < symbols.length; i += batchSize) {
+            const chunk = symbols.slice(i, i + batchSize);
+            const promises = chunk.map(symbol => 
+                analyzeSymbol(symbol, timeframe, swingLen, dispMult, tpMult, slMult, maxAge)
+                    .catch(() => [])
+            );
+
+            const results = await Promise.all(promises);
+            results.forEach(sigs => allSignals.push(...sigs));
+
+            processed += chunk.length;
+            let pct = Math.min(100, Math.round((processed / symbols.length) * 100));
+            pbarFill.style.width = `${pct}%`;
+            statusLbl.innerText = `Scanning ${processed}/${symbols.length} markets (${pct}%)...`;
         }
 
-        // Logic 3: Order Block Volume Delta Analysis
-        function calculateOBVolumeDelta(klines) {
-            let bullishVol = 0;
-            let bearishVol = 0;
-            let recent = klines.slice(-20);
+        // Sort: "TESTING ZONE" first, then by freshest (lowest ageInBars)
+        allSignals.sort((a, b) => {
+            if (a.status === "TESTING ZONE" && b.status !== "TESTING ZONE") return -1;
+            if (a.status !== "TESTING ZONE" && b.status === "TESTING ZONE") return 1;
+            return a.ageInBars - b.ageInBars;
+        });
 
-            recent.forEach(k => {
-                if (k.close > k.open) bullishVol += k.volume;
-                else bearishVol += k.volume;
-            });
+        for (let sig of allSignals) {
+            const tr = document.createElement('tr');
+            const isBull = sig.isBull;
+            const typeBadge = isBull 
+                ? `<span class="badge badge-bull">BULLISH OB (LONG)</span>` 
+                : `<span class="badge badge-bear">BEARISH OB (SHORT)</span>`;
 
-            let delta = bullishVol - bearishVol;
-            if (delta > 0) {
-                return { bias: "BULLISH", text: `+${(delta/1000).toFixed(1)}k Delta (Demand OB)` };
-            } else {
-                return { bias: "BEARISH", text: `${(delta/1000).toFixed(1)}k Delta (Supply OB)` };
-            }
-        }
+            const statusBadge = sig.status === 'TESTING ZONE'
+                ? `<span class="badge badge-testing">TESTING ZONE</span>`
+                : `<span style="color: var(--text-primary); font-weight:600;">ACTIVE</span>`;
 
-        async function runScan() {
-            const scanBtn = document.getElementById('scanBtn');
-            const statusEl = document.getElementById('lastUpdated');
-            scanBtn.disabled = true;
-            statusEl.innerText = "Status: Scanning market tickers...";
-
-            scannerData = [];
-            const tbody = document.getElementById('scannerBody');
-            tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--accent-color); padding: 30px;">Analyzing live candle data and market structures...</td></tr>`;
-
-            for (let symbol of SYMBOLS) {
-                const klines15m = await fetchKlineData(symbol, '15m', 100);
-                const klines1h = await fetchKlineData(symbol, '1h', 100);
-                const klines4h = await fetchKlineData(symbol, '4h', 100);
-
-                if (!klines15m || klines15m.length === 0) continue;
-
-                let lastClose = klines15m[klines15m.length - 1].close;
-                let prevClose = klines15m[0].close;
-                let priceChange = (((lastClose - prevClose) / prevClose) * 100).toFixed(2);
-
-                // Calculations based on Pine Script logic
-                let zlema5m = calculateZeroLagTrend(klines15m.slice(-30));
-                let zlema15m = calculateZeroLagTrend(klines15m);
-                let zlema1h = calculateZeroLagTrend(klines1h || klines15m);
-                let zlema4h = calculateZeroLagTrend(klines4h || klines15m);
-
-                let smc = calculateSMCStructure(klines15m);
-                let ob = calculateOBVolumeDelta(klines15m);
-
-                // Combine overall signal
-                let bullPoints = (zlema15m === "BULLISH" ? 1 : 0) + (smc.structure === "BULLISH" ? 1 : 0) + (ob.bias === "BULLISH" ? 1 : 0);
-                let bearPoints = (zlema15m === "BEARISH" ? 1 : 0) + (smc.structure === "BEARISH" ? 1 : 0) + (ob.bias === "BEARISH" ? 1 : 0);
-
-                let overallAction = "NEUTRAL";
-                if (bullPoints >= 2) overallAction = "BULLISH";
-                if (bearPoints >= 2) overallAction = "BEARISH";
-
-                scannerData.push({
-                    symbol,
-                    price: lastClose,
-                    priceChange,
-                    zlemaMTF: { m5: zlema5m, m15: zlema15m, h1: zlema1h, h4: zlema4h },
-                    smc,
-                    ob,
-                    overallAction
-                });
-            }
-
-            renderTable(scannerData);
-            statusEl.innerText = `Last Updated: ${new Date().toLocaleTimeString()}`;
-            scanBtn.disabled = false;
-        }
-
-        function renderTable(data) {
-            const tbody = document.getElementById('scannerBody');
-            tbody.innerHTML = '';
-
-            if (data.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted);">No symbols found matching filter.</td></tr>`;
-                return;
-            }
-
-            data.forEach(row => {
-                let changeClass = row.priceChange >= 0 ? 'price-up' : 'price-down';
-                let changeSign = row.priceChange >= 0 ? '+' : '';
-
-                let overallBadge = row.overallAction === 'BULLISH' 
-                    ? `<span class="badge badge-bullish">LONG / BULLISH</span>` 
-                    : row.overallAction === 'BEARISH'
-                    ? `<span class="badge badge-bearish">SHORT / BEARISH</span>`
-                    : `<span class="badge badge-neutral">NEUTRAL</span>`;
-
-                let tr = document.createElement('tr');
-                tr.innerHTML = `
-                    <td><strong>${row.symbol}</strong></td>
-                    <td>${row.price < 1 ? row.price.toFixed(6) : row.price.toFixed(2)}</td>
-                    <td class="${changeClass}">${changeSign}${row.priceChange}%</td>
-                    <td>
-                        <div class="mtf-matrix">
-                            <div class="mtf-dot ${row.zlemaMTF.m5 === 'BULLISH' ? 'dot-green' : 'dot-red'}" title="5m Trend">5m</div>
-                            <div class="mtf-dot ${row.zlemaMTF.m15 === 'BULLISH' ? 'dot-green' : 'dot-red'}" title="15m Trend">15m</div>
-                            <div class="mtf-dot ${row.zlemaMTF.h1 === 'BULLISH' ? 'dot-green' : 'dot-red'}" title="1h Trend">1h</div>
-                            <div class="mtf-dot ${row.zlemaMTF.h4 === 'BULLISH' ? 'dot-green' : 'dot-red'}" title="4h Trend">4h</div>
+            tr.innerHTML = `
+                <td><strong>${sig.symbol}</strong></td>
+                <td>${typeBadge}</td>
+                <td><strong>${sig.ageInBars}</strong> bars ago</td>
+                <td>${sig.top.toFixed(4)} - ${sig.bot.toFixed(4)}</td>
+                <td><strong>${sig.mid.toFixed(4)}</strong></td>
+                <td class="val-bull">${sig.tp.toFixed(4)}</td>
+                <td class="val-bear">${sig.sl.toFixed(4)}</td>
+                <td>
+                    <div style="display:flex; align-items:center; gap:6px;">
+                        <span>${sig.bullPct}%</span>
+                        <div class="delta-bar-container">
+                            <div class="delta-bar-fill" style="width: ${sig.bullPct}%"></div>
                         </div>
-                    </td>
-                    <td><span class="badge ${row.smc.structure === 'BULLISH' ? 'badge-bullish' : row.smc.structure === 'BEARISH' ? 'badge-bearish' : 'badge-neutral'}">${row.smc.detail}</span></td>
-                    <td><span style="color: ${row.ob.bias === 'BULLISH' ? 'var(--bullish-color)' : 'var(--bearish-color)'}">${row.ob.text}</span></td>
-                    <td>${overallBadge}</td>
-                `;
-                tbody.appendChild(tr);
-            });
+                    </div>
+                </td>
+                <td>${sig.touches}</td>
+                <td>${sig.dispRatio}x ATR</td>
+                <td>${statusBadge}</td>
+            `;
+            tbody.appendChild(tr);
         }
 
-        function filterResults() {
-            const filterValue = document.getElementById('signalFilter').value;
-            if (filterValue === 'ALL') {
-                renderTable(scannerData);
-            } else {
-                let filtered = scannerData.filter(d => d.overallAction === filterValue);
-                renderTable(filtered);
-            }
+        if (allSignals.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="11" style="text-align: center; color: var(--text-secondary); padding: 30px;">
+                        No order blocks found within the last ${maxAge} bars matching your displacement criteria. Try increasing "Max OB Age".
+                    </td>
+                </tr>
+            `;
         }
-    </script>
+
+        btn.disabled = false;
+        btn.innerHTML = "Run Scanner";
+        pbarContainer.style.display = "none";
+        statusLbl.innerText = "Scan completed successfully.";
+        countLbl.innerText = `${allSignals.length} Fresh Signals Found`;
+        document.getElementById('last-updated').innerText = `Last Updated: ${new Date().toLocaleTimeString()}`;
+    }
+</script>
+
 </body>
 </html>
