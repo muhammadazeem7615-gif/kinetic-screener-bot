@@ -1,392 +1,621 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Binance Futures Institutional Scanner</title>
-  <!-- Lightweight Charts Library -->
-  <script src="https://unpkg.com/lightweight-charts@4.1.1/dist/lightweight-charts.standalone.production.js"></script>
-  <style>
-    :root {
-      --bg: #0b0e11;
-      --card: #181a20;
-      --border: #2b313a;
-      --text: #eaecef;
-      --text-muted: #848e9c;
-      --green: #0ecb81;
-      --red: #f6465d;
-      --accent: #f0b90b;
-    }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background-color: var(--bg);
-      color: var(--text);
-      margin: 0;
-      padding: 20px;
-    }
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding-bottom: 16px;
-      border-bottom: 1px solid var(--border);
-    }
-    .disclaimer {
-      background: rgba(240, 185, 11, 0.1);
-      border: 1px solid var(--accent);
-      color: var(--accent);
-      padding: 10px 14px;
-      border-radius: 6px;
-      margin: 16px 0;
-      font-size: 0.85rem;
-      line-height: 1.4;
-    }
-    .controls {
-      display: flex;
-      gap: 12px;
-      margin-bottom: 20px;
-      align-items: center;
-    }
-    select, button {
-      background: var(--card);
-      color: var(--text);
-      border: 1px solid var(--border);
-      padding: 10px 16px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-      font-size: 0.9rem;
-    }
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    button:hover:not(:disabled) {
-      border-color: var(--accent);
-    }
-    .grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-      gap: 16px;
-    }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-    .symbol {
-      font-size: 1.2rem;
-      font-weight: bold;
-    }
-    .badge {
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-weight: bold;
-      font-size: 0.8rem;
-    }
-    .badge.long { background: rgba(14, 203, 129, 0.2); color: var(--green); }
-    .badge.short { background: rgba(246, 70, 93, 0.2); color: var(--red); }
-    .metrics {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px;
-      font-size: 0.88rem;
-    }
-    .val-long { color: var(--green); font-weight: bold; }
-    .val-short { color: var(--red); font-weight: bold; }
-    .val-neutral { color: var(--text-muted); }
-    .chart-container {
-      width: 100%;
-      height: 180px;
-      margin-top: 8px;
-      border-radius: 4px;
-      overflow: hidden;
-      background: #000;
-    }
-    #status { color: var(--text-muted); font-size: 0.9rem; }
-    .empty-msg {
-      grid-column: 1 / -1;
-      text-align: center;
-      padding: 40px;
-      color: var(--text-muted);
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flux & Stat Volume Delta Order Block Scanner</title>
+    <style>
+        :root {
+            --bg-color: #0b0e14;
+            --panel-bg: #151921;
+            --border-color: #232733;
+            --text-primary: #e1e3e6;
+            --text-secondary: #848e9c;
+            --bull-color: #0ecb81;
+            --bear-color: #f6465d;
+            --accent-color: #2962ff;
+            --accent-hover: #1e53e5;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-primary);
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            font-size: 13px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .controls-panel {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            padding: 16px;
+            margin-bottom: 20px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 15px;
+            align-items: end;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .input-group label {
+            color: var(--text-secondary);
+            font-size: 11px;
+            font-weight: 500;
+            text-transform: uppercase;
+        }
+
+        .input-group input, .input-group select {
+            background-color: var(--bg-color);
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 8px 10px;
+            border-radius: 4px;
+            outline: none;
+            font-size: 12px;
+        }
+
+        .input-group input:focus, .input-group select:focus {
+            border-color: var(--accent-color);
+        }
+
+        .btn-scan {
+            background-color: var(--accent-color);
+            color: #ffffff;
+            border: none;
+            padding: 9px 16px;
+            border-radius: 4px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+            height: 35px;
+        }
+
+        .btn-scan:hover {
+            background-color: var(--accent-hover);
+        }
+
+        .status-bar {
+            margin-bottom: 15px;
+            color: var(--text-secondary);
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .table-container {
+            background-color: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+        }
+
+        th {
+            background-color: rgba(255, 255, 255, 0.02);
+            color: var(--text-secondary);
+            padding: 12px 14px;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        td {
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 12px;
+        }
+
+        tr:hover {
+            background-color: rgba(255, 255, 255, 0.02);
+        }
+
+        .badge {
+            padding: 3px 8px;
+            border-radius: 3px;
+            font-weight: 600;
+            font-size: 10px;
+            display: inline-block;
+            text-transform: uppercase;
+        }
+
+        .badge-bull {
+            background-color: rgba(14, 203, 129, 0.15);
+            color: var(--bull-color);
+            border: 1px solid var(--bull-color);
+        }
+
+        .badge-bear {
+            background-color: rgba(246, 70, 93, 0.15);
+            color: var(--bear-color);
+            border: 1px solid var(--bear-color);
+        }
+
+        .val-bull { color: var(--bull-color); font-weight: 600; }
+        .val-bear { color: var(--bear-color); font-weight: 600; }
+
+        .delta-bar-container {
+            width: 100px;
+            height: 12px;
+            background-color: var(--bear-color);
+            border-radius: 2px;
+            overflow: hidden;
+            display: flex;
+        }
+
+        .delta-bar-fill {
+            height: 100%;
+            background-color: var(--bull-color);
+        }
+
+        .loader {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border: 2px solid rgba(255,255,255,.3);
+            border-radius: 50%;
+            border-top-color: #fff;
+            animation: spin 1s ease-in-out infinite;
+            margin-right: 8px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </head>
 <body>
 
-  <div class="header">
-    <h2>Binance Futures Scanner v2.0</h2>
-    <div id="status">Status: Ready</div>
-  </div>
+<div class="container">
+    <div class="header">
+        <h1>Flux & Stat Volume Delta Order Block Scanner</h1>
+        <div id="last-updated" style="color: var(--text-secondary); font-size: 12px;"></div>
+    </div>
 
-  <div class="disclaimer">
-    <strong>Risk Notice:</strong> Signals are derived strictly from closed candles. R:R figures do not account for slippage, exchange fees, dynamic funding rates, or liquidation mechanics.
-  </div>
+    <div class="controls-panel">
+        <div class="input-group">
+            <label>Symbols (Comma Separated)</label>
+            <input type="text" id="symbols-input" value="BTCUSDT, ETHUSDT, SOLUSDT, TAOUSDT, XRPUSDT, BONKUSDT, LITUSDT, RVNUSDT">
+        </div>
+        <div class="input-group">
+            <label>Timeframe</label>
+            <select id="tf-select">
+                <option value="1m">1 Minute</option>
+                <option value="5m">5 Minutes</option>
+                <option value="15m" selected>15 Minutes</option>
+                <option value="1h">1 Hour</option>
+                <option value="4h">4 Hours</option>
+                <option value="1d">1 Day</option>
+            </select>
+        </div>
+        <div class="input-group">
+            <label>Flux Swing Length</label>
+            <input type="number" id="swing-len" value="5" min="1" max="50">
+        </div>
+        <div class="input-group">
+            <label>Displacement (ATR Multi)</label>
+            <input type="number" id="disp-mult" value="1.5" step="0.1" min="0.5">
+        </div>
+        <div class="input-group">
+            <label>TP ATR Multiplier</label>
+            <input type="number" id="tp-mult" value="3.0" step="0.1">
+        </div>
+        <div class="input-group">
+            <label>SL ATR Multiplier</label>
+            <input type="number" id="sl-mult" value="6.0" step="0.1">
+        </div>
+        <button class="btn-scan" id="btn-run" onclick="runScanner()">Run Scanner</button>
+    </div>
 
-  <div class="controls">
-    <select id="timeframe">
-      <option value="30m" selected>30m Timeframe</option>
-      <option value="4h">4h Timeframe</option>
-    </select>
-    <button id="scanBtn" onclick="startScan()">Run Full Scan</button>
-  </div>
+    <div class="status-bar">
+        <span id="scan-status">Ready to scan Binance Futures/Spot markets.</span>
+        <span id="scan-count">0 Signals Found</span>
+    </div>
 
-  <div class="grid" id="signals"></div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Type</th>
+                    <th>Zone Range (Top - Bot)</th>
+                    <th>Entry Mid</th>
+                    <th>Take Profit (TP)</th>
+                    <th>Stop Loss (SL)</th>
+                    <th>Volume Delta (Bull %)</th>
+                    <th>POC Touches</th>
+                    <th>Displacement</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody id="results-body">
+                <tr>
+                    <td colspan="10" style="text-align: center; color: var(--text-secondary); padding: 30px;">
+                        Click "Run Scanner" to fetch market data and analyze Order Blocks.
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
 
-  <script>
-    const BINANCE_BASE = 'https://fapi.binance.com';
-    let isScanning = false;
-    let symbolFilters = new Map();
+<script>
+    class TechnicalAnalysis {
+        static calcATR(klines, period = 14) {
+            let atr = new Array(klines.length).fill(0);
+            let tr = new Array(klines.length).fill(0);
 
-    // Robust fetch wrapper
-    async function fetchJson(url) {
-      const res = await fetch(url);
-      if (!res.ok) throw new Error(`HTTP Error ${res.status}`);
-      const data = await res.json();
-      if (data && !Array.isArray(data) && data.code) {
-        throw new Error(data.msg || 'Binance API Error');
-      }
-      return data;
-    }
+            for (let i = 0; i < klines.length; i++) {
+                if (i === 0) {
+                    tr[i] = klines[i].high - klines[i].low;
+                } else {
+                    const h = klines[i].high;
+                    const l = klines[i].low;
+                    const cp = klines[i - 1].close;
+                    tr[i] = Math.max(h - l, Math.abs(h - cp), Math.abs(l - cp));
+                }
+            }
 
-    // Format price according to exchange PRICE_FILTER tickSize
-    function formatTick(price, symbol) {
-      const filter = symbolFilters.get(symbol);
-      if (!filter) return price.toFixed(4);
-      const precision = filter.precision;
-      return Number(price).toFixed(precision);
-    }
-
-    // Calculate Precision digits from tickSize string (e.g. "0.0010000" -> 3)
-    function getPrecision(tickSizeStr) {
-      const parseFloatStr = parseFloat(tickSizeStr).toString();
-      if (parseFloatStr.includes('.')) {
-        return parseFloatStr.split('.')[1].length;
-      }
-      return 0;
-    }
-
-    // Load Exchange Rules (Precision & Tick Size)
-    async function loadExchangeRules() {
-      const data = await fetchJson(`${BINANCE_BASE}/fapi/v1/exchangeInfo`);
-      symbolFilters.clear();
-      data.symbols.forEach(s => {
-        if (s.quoteAsset === 'USDT' && s.status === 'TRADING') {
-          const priceFilter = s.filters.find(f => f.filterType === 'PRICE_FILTER');
-          const tickSize = priceFilter ? priceFilter.tickSize : '0.0001';
-          symbolFilters.set(s.symbol, {
-            tickSize: parseFloat(tickSize),
-            precision: getPrecision(tickSize)
-          });
+            let sum = 0;
+            for (let i = 0; i < klines.length; i++) {
+                if (i < period) {
+                    sum += tr[i];
+                    if (i === period - 1) atr[i] = sum / period;
+                } else {
+                    atr[i] = (atr[i - 1] * (period - 1) + tr[i]) / period;
+                }
+            }
+            return atr;
         }
-      });
+
+        static findPivots(klines, swingLen) {
+            let ph = new Array(klines.length).fill(null);
+            let pl = new Array(klines.length).fill(null);
+
+            for (let i = swingLen; i < klines.length - swingLen; i++) {
+                let isHigh = true;
+                let isLow = true;
+
+                for (let j = 1; j <= swingLen; j++) {
+                    if (klines[i].high <= klines[i - j].high || klines[i].high <= klines[i + j].high) isHigh = false;
+                    if (klines[i].low >= klines[i - j].low || klines[i].low >= klines[i + j].low) isLow = false;
+                }
+
+                if (isHigh) ph[i] = klines[i].high;
+                if (isLow) pl[i] = klines[i].low;
+            }
+            return { ph, pl };
+        }
+
+        static findPOC(klines, fromIdx, toIdx, nBins = 40) {
+            if (fromIdx < 0 || toIdx >= klines.length || fromIdx >= toIdx) {
+                return { poc: null, touches: 0, bullVol: 0, bearVol: 0, totVol: 0 };
+            }
+
+            let minP = Infinity;
+            let maxP = -Infinity;
+
+            for (let i = fromIdx; i <= toIdx; i++) {
+                if (klines[i].low < minP) minP = klines[i].low;
+                if (klines[i].high > maxP) maxP = klines[i].high;
+            }
+
+            if (minP >= maxP) return { poc: null, touches: 0, bullVol: 0, bearVol: 0, totVol: 0 };
+
+            let step = (maxP - minP) / nBins;
+            if (step <= 0) step = 0.000001;
+
+            let diffCnt = new Array(nBins).fill(0);
+
+            for (let i = fromIdx; i <= toIdx; i++) {
+                let sBin = Math.floor((klines[i].low - minP) / step);
+                let eBin = Math.floor((klines[i].high - minP) / step);
+                sBin = Math.max(0, Math.min(nBins - 1, sBin));
+                eBin = Math.max(0, Math.min(nBins - 1, eBin));
+
+                diffCnt[sBin] += 1;
+                if (eBin + 1 < nBins) diffCnt[eBin + 1] -= 1;
+            }
+
+            let bestBin = 0;
+            let bestCnt = 0;
+            let runCnt = 0;
+
+            for (let i = 0; i < nBins; i++) {
+                runCnt += diffCnt[i];
+                if (runCnt > bestCnt) {
+                    bestCnt = runCnt;
+                    bestBin = i;
+                }
+            }
+
+            let poc = minP + (bestBin + 0.5) * step;
+
+            let touches = 0;
+            let totVol = 0;
+            let bullVol = 0;
+            let bearVol = 0;
+
+            for (let i = fromIdx; i <= toIdx; i++) {
+                if (klines[i].low <= poc && klines[i].high >= poc) {
+                    touches++;
+                    totVol += klines[i].volume;
+                    bullVol += klines[i].takerBuyVol;
+                    bearVol += (klines[i].volume - klines[i].takerBuyVol);
+                }
+            }
+
+            return { poc, touches, bullVol, bearVol, totVol };
+        }
     }
 
-    // Wilder's Average True Range (ATR)
-    function calculateATR(candles, period = 14) {
-      if (candles.length < period + 1) return null;
-      let trs = [];
-      for (let i = 1; i < candles.length; i++) {
-        const h = candles[i].high, l = candles[i].low, pc = candles[i - 1].close;
-        trs.push(Math.max(h - l, Math.abs(h - pc), Math.abs(l - pc)));
-      }
-      if (trs.length < period) return null;
+    async function fetchBinanceKlines(symbol, interval, limit = 500) {
+        const url = `https://api.binance.com/api/v3/klines?symbol=${symbol.trim().toUpperCase()}&interval=${interval}&limit=${limit}`;
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Failed to fetch data for ${symbol}`);
+        const data = await response.json();
 
-      // Seed with SMA
-      let atr = trs.slice(0, period).reduce((a, b) => a + b, 0) / period;
-      // Wilder's Smoothing
-      for (let i = period; i < trs.length; i++) {
-        atr = (atr * (period - 1) + trs[i]) / period;
-      }
-      return atr;
-    }
-
-    // Standard Exponential Moving Average (EMA seeded with SMA)
-    function calculateEMA(candles, period) {
-      if (candles.length < period) return null;
-      let sum = 0;
-      for (let i = 0; i < period; i++) sum += candles[i].close;
-      let ema = sum / period;
-      const k = 2 / (period + 1);
-
-      for (let i = period; i < candles.length; i++) {
-        ema = candles[i].close * k + ema * (1 - k);
-      }
-      return ema;
-    }
-
-    async function analyzeSymbol(symbol, timeframe) {
-      try {
-        const raw = await fetchJson(`${BINANCE_BASE}/fapi/v1/klines?symbol=${symbol}&interval=${timeframe}&limit=60`);
-        if (!Array.isArray(raw) || raw.length < 35) return null;
-
-        const candles = raw.map(c => ({
-          time: Math.floor(c[0] / 1000),
-          open: parseFloat(c[1]),
-          high: parseFloat(c[2]),
-          low: parseFloat(c[3]),
-          close: parseFloat(c[4]),
-          volume: parseFloat(c[5])
+        return data.map(d => ({
+            time: d[0],
+            open: parseFloat(d[1]),
+            high: parseFloat(d[2]),
+            low: parseFloat(d[3]),
+            close: parseFloat(d[4]),
+            volume: parseFloat(d[5]),
+            takerBuyVol: parseFloat(d[9])
         }));
-
-        // Exclude in-progress candle to prevent recalculation instability
-        const closed = candles.slice(0, -1);
-        const last = closed[closed.length - 1];
-        const prev = closed[closed.length - 2];
-
-        // Indicators
-        const emaFastCurr = calculateEMA(closed, 9);
-        const emaSlowCurr = calculateEMA(closed, 21);
-        const emaFastPrev = calculateEMA(closed.slice(0, -1), 9);
-        const emaSlowPrev = calculateEMA(closed.slice(0, -1), 21);
-        const atr = calculateATR(closed, 14);
-
-        if (!emaFastCurr || !emaSlowCurr || !atr) return null;
-
-        // Volume Filter
-        const avgVol = closed.slice(-20).reduce((a, b) => a + b.volume, 0) / 20;
-        const isVolConfirmed = last.volume > (avgVol * 1.1);
-
-        // Signal Triggers (EMA Crossover + Volume Confirmation)
-        const isBullCross = (emaFastPrev <= emaSlowPrev) && (emaFastCurr > emaSlowCurr);
-        const isBearCross = (emaFastPrev >= emaSlowPrev) && (emaFastCurr < emaSlowCurr);
-
-        if ((isBullCross || isBearCross) && isVolConfirmed) {
-          const type = isBullCross ? 'LONG' : 'SHORT';
-          const sl = isBullCross ? (last.close - (atr * 2)) : (last.close + (atr * 2));
-          const tp = isBullCross ? (last.close + (atr * 3)) : (last.close - (atr * 3));
-          
-          // Momentum Score for Sorting
-          const volRatio = (last.volume / avgVol).toFixed(2);
-          const score = volRatio * 10;
-
-          return {
-            symbol,
-            type,
-            score,
-            volRatio,
-            lastClose: last.close,
-            sl,
-            tp,
-            chartData: closed.slice(-30)
-          };
-        }
-      } catch (e) {
-        return null;
-      }
-      return null;
     }
 
-    async function startScan() {
-      if (isScanning) return;
-      isScanning = true;
+    async function analyzeSymbol(symbol, timeframe, swingLen, dispMult, tpMult, slMult) {
+        const klines = await fetchBinanceKlines(symbol, timeframe, 500);
+        const atr = TechnicalAnalysis.calcATR(klines, 14);
+        const { ph, pl } = TechnicalAnalysis.findPivots(klines, swingLen);
 
-      const scanBtn = document.getElementById('scanBtn');
-      const status = document.getElementById('status');
-      const grid = document.getElementById('signals');
-      const tf = document.getElementById('timeframe').value;
+        let activeOBs = [];
 
-      scanBtn.disabled = true;
-      grid.innerHTML = '';
-      status.textContent = 'Loading Binance exchange parameters...';
+        let lastSHPrice = null, lastSHIdx = null;
+        let lastSLPrice = null, lastSLIdx = null;
 
-      try {
-        await loadExchangeRules();
-        const pairs = Array.from(symbolFilters.keys());
-        status.textContent = `Scanning ${pairs.length} markets on ${tf}...`;
+        for (let i = swingLen; i < klines.length; i++) {
+            if (ph[i - swingLen] !== null) {
+                lastSHPrice = ph[i - swingLen];
+                lastSHIdx = i - swingLen;
+            }
+            if (pl[i - swingLen] !== null) {
+                lastSLPrice = pl[i - swingLen];
+                lastSLIdx = i - swingLen;
+            }
 
-        let signals = [];
-        const batchSize = 12;
+            let bosBear = lastSLPrice !== null && i > lastSLIdx && klines[i].close < lastSLPrice && klines[i - 1].close >= lastSLPrice;
+            let bosBull = lastSHPrice !== null && i > lastSHIdx && klines[i].close > lastSHPrice && klines[i - 1].close <= lastSHPrice;
 
-        for (let i = 0; i < pairs.length; i += batchSize) {
-          const batch = pairs.slice(i, i + batchSize);
-          const results = await Promise.all(batch.map(p => analyzeSymbol(p, tf)));
-          signals.push(...results.filter(Boolean));
-          status.textContent = `Scanned ${Math.min(i + batchSize, pairs.length)}/${pairs.length} markets...`;
+            if (bosBear) {
+                let fromIdx = lastSLIdx;
+                let toIdx = i - 1;
+                let { poc, touches, bullVol, bearVol, totVol } = TechnicalAnalysis.findPOC(klines, fromIdx, toIdx);
+
+                if (poc !== null) {
+                    let bestIdx = null;
+                    let runMaxHigh = -Infinity;
+
+                    for (let idx = toIdx; idx >= fromIdx; idx--) {
+                        runMaxHigh = Math.max(runMaxHigh, klines[idx].high);
+                        if (klines[idx].low <= poc && klines[idx].high >= poc && klines[idx].high === runMaxHigh) {
+                            bestIdx = idx;
+                        }
+                    }
+
+                    if (bestIdx !== null) {
+                        let disp = klines[bestIdx].high - klines[lastSLIdx].low;
+                        let atrAtPivot = atr[lastSLIdx] || atr[i];
+
+                        if (disp >= atrAtPivot * dispMult) {
+                            let top = klines[bestIdx].high;
+                            let bot = klines[bestIdx].low;
+                            let mid = (top + bot) / 2;
+                            let bullPct = totVol > 0 ? (bullVol / totVol) * 100 : 50;
+
+                            activeOBs.push({
+                                symbol,
+                                isBull: false,
+                                top,
+                                bot,
+                                mid,
+                                tp: mid - atr[i] * tpMult,
+                                sl: top + atr[i] * slMult,
+                                bullPct: bullPct.toFixed(1),
+                                touches,
+                                dispRatio: (disp / atrAtPivot).toFixed(2),
+                                createdIdx: i,
+                                active: true
+                            });
+                        }
+                    }
+                }
+                lastSLPrice = null;
+                lastSLIdx = null;
+            }
+
+            if (bosBull) {
+                let fromIdx = lastSHIdx;
+                let toIdx = i - 1;
+                let { poc, touches, bullVol, bearVol, totVol } = TechnicalAnalysis.findPOC(klines, fromIdx, toIdx);
+
+                if (poc !== null) {
+                    let bestIdx = null;
+                    let runMinLow = Infinity;
+
+                    for (let idx = toIdx; idx >= fromIdx; idx--) {
+                        runMinLow = Math.min(runMinLow, klines[idx].low);
+                        if (klines[idx].low <= poc && klines[idx].high >= poc && klines[idx].low === runMinLow) {
+                            bestIdx = idx;
+                        }
+                    }
+
+                    if (bestIdx !== null) {
+                        let disp = klines[lastSHIdx].high - klines[bestIdx].low;
+                        let atrAtPivot = atr[lastSHIdx] || atr[i];
+
+                        if (disp >= atrAtPivot * dispMult) {
+                            let top = klines[bestIdx].high;
+                            let bot = klines[bestIdx].low;
+                            let mid = (top + bot) / 2;
+                            let bullPct = totVol > 0 ? (bullVol / totVol) * 100 : 50;
+
+                            activeOBs.push({
+                                symbol,
+                                isBull: true,
+                                top,
+                                bot,
+                                mid,
+                                tp: mid + atr[i] * tpMult,
+                                sl: bot - atr[i] * slMult,
+                                bullPct: bullPct.toFixed(1),
+                                touches,
+                                dispRatio: (disp / atrAtPivot).toFixed(2),
+                                createdIdx: i,
+                                active: true
+                            });
+                        }
+                    }
+                }
+                lastSHPrice = null;
+                lastSHIdx = null;
+            }
+
+            let currClose = klines[i].close;
+            let currHigh = klines[i].high;
+            let currLow = klines[i].low;
+
+            for (let ob of activeOBs) {
+                if (ob.active) {
+                    if (ob.isBull && currLow < ob.bot) ob.active = false;
+                    else if (!ob.isBull && currHigh > ob.top) ob.active = false;
+                }
+            }
         }
 
-        // Sort signals by Volume Multiplier Score
-        signals.sort((a, b) => b.score - a.score);
-
-        if (signals.length === 0) {
-          grid.innerHTML = '<div class="empty-msg">No volume-backed crossover signals detected.</div>';
-        } else {
-          signals.forEach(sig => renderCard(sig));
-        }
-
-        status.textContent = `Scan completed at ${new Date().toLocaleTimeString()}`;
-      } catch (err) {
-        status.textContent = `Scan aborted: ${err.message}`;
-      } finally {
-        isScanning = false;
-        scanBtn.disabled = false;
-      }
-    }
-
-    function renderCard(sig) {
-      const grid = document.getElementById('signals');
-      const card = document.createElement('div');
-      card.className = 'card';
-
-      const isLong = sig.type === 'LONG';
-      const badgeClass = isLong ? 'badge long' : 'badge short';
-      const chartId = `chart-${sig.symbol}`;
-
-      // Build DOM Safely
-      card.innerHTML = `
-        <div class="card-header">
-          <span class="symbol"></span>
-          <span class="${badgeClass}"></span>
-        </div>
-        <div class="metrics">
-          <div>Last Close: <strong class="val-close"></strong></div>
-          <div>Vol Ratio: <strong class="val-vol"></strong></div>
-          <div>Stop Loss: <span class="val-short val-sl"></span></div>
-          <div>Take Profit: <span class="val-long val-tp"></span></div>
-        </div>
-        <div class="chart-container" id="${chartId}"></div>
-      `;
-
-      card.querySelector('.symbol').textContent = sig.symbol;
-      card.querySelector(`.${badgeClass.replace(' ', '.')}`).textContent = `${sig.type} (Score: ${sig.score.toFixed(1)})`;
-      card.querySelector('.val-close').textContent = formatTick(sig.lastClose, sig.symbol);
-      card.querySelector('.val-vol').textContent = `${sig.volRatio}x`;
-      card.querySelector('.val-sl').textContent = formatTick(sig.sl, sig.symbol);
-      card.querySelector('.val-tp').textContent = formatTick(sig.tp, sig.symbol);
-
-      grid.appendChild(card);
-
-      // Render Lightweight Chart
-      setTimeout(() => {
-        const container = document.getElementById(chartId);
-        if (!container || typeof LightweightCharts === 'undefined') return;
-
-        const chart = LightweightCharts.createChart(container, {
-          layout: { backgroundColor: '#000000', textColor: '#848e9c' },
-          grid: { vertLines: { visible: false }, horzLines: { color: '#1e222d' } },
-          timeScale: { timeVisible: true, secondsVisible: false },
-          rightPriceScale: { borderVisible: false }
+        const currentPrice = klines[klines.length - 1].close;
+        return activeOBs.filter(ob => ob.active).map(ob => {
+            let status = "ACTIVE";
+            if (ob.isBull && currentPrice <= ob.top && currentPrice >= ob.bot) status = "TESTING ZONE";
+            if (!ob.isBull && currentPrice >= ob.bot && currentPrice <= ob.top) status = "TESTING ZONE";
+            return { ...ob, status };
         });
-
-        const candleSeries = chart.addCandlestickSeries({
-          upColor: '#0ecb81', downColor: '#f6465d',
-          borderUpColor: '#0ecb81', borderDownColor: '#f6465d',
-          wickUpColor: '#0ecb81', wickDownColor: '#f6465d'
-        });
-
-        candleSeries.setData(sig.chartData);
-        chart.timeScale().fitContent();
-      }, 50);
     }
-  </script>
+
+    async function runScanner() {
+        const btn = document.getElementById('btn-run');
+        const statusLbl = document.getElementById('scan-status');
+        const countLbl = document.getElementById('scan-count');
+        const tbody = document.getElementById('results-body');
+
+        btn.disabled = true;
+        btn.innerHTML = `<span class="loader"></span> Scanning...`;
+        statusLbl.innerText = "Fetching market data and calculating displacement models...";
+        tbody.innerHTML = "";
+
+        const symbols = document.getElementById('symbols-input').value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+        const timeframe = document.getElementById('tf-select').value;
+        const swingLen = parseInt(document.getElementById('swing-len').value);
+        const dispMult = parseFloat(document.getElementById('disp-mult').value);
+        const tpMult = parseFloat(document.getElementById('tp-mult').value);
+        const slMult = parseFloat(document.getElementById('sl-mult').value);
+
+        let totalSignals = 0;
+
+        for (let symbol of symbols) {
+            try {
+                const signals = await analyzeSymbol(symbol, timeframe, swingLen, dispMult, tpMult, slMult);
+                totalSignals += signals.length;
+
+                for (let sig of signals) {
+                    const tr = document.createElement('tr');
+                    const isBull = sig.isBull;
+                    const typeBadge = isBull 
+                        ? `<span class="badge badge-bull">BULLISH OB (LONG)</span>` 
+                        : `<span class="badge badge-bear">BEARISH OB (SHORT)</span>`;
+
+                    tr.innerHTML = `
+                        <td><strong>${sig.symbol}</strong></td>
+                        <td>${typeBadge}</td>
+                        <td>${sig.top.toFixed(4)} - ${sig.bot.toFixed(4)}</td>
+                        <td><strong>${sig.mid.toFixed(4)}</strong></td>
+                        <td class="val-bull">${sig.tp.toFixed(4)}</td>
+                        <td class="val-bear">${sig.sl.toFixed(4)}</td>
+                        <td>
+                            <div style="display:flex; align-items:center; gap:8px;">
+                                <span>${sig.bullPct}%</span>
+                                <div class="delta-bar-container">
+                                    <div class="delta-bar-fill" style="width: ${sig.bullPct}%"></div>
+                                </div>
+                            </div>
+                        </td>
+                        <td>${sig.touches}</td>
+                        <td>${sig.dispRatio}x ATR</td>
+                        <td><span style="color: ${sig.status === 'TESTING ZONE' ? '#ffb000' : 'var(--text-primary)'}; font-weight:600;">${sig.status}</span></td>
+                    `;
+                    tbody.appendChild(tr);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        if (totalSignals === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="10" style="text-align: center; color: var(--text-secondary); padding: 30px;">
+                        No active Order Blocks found matching the displacement criteria for the selected symbols.
+                    </td>
+                </tr>
+            `;
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = "Run Scanner";
+        statusLbl.innerText = "Scan completed successfully.";
+        countLbl.innerText = `${totalSignals} Active Signals Found`;
+        document.getElementById('last-updated').innerText = `Last Updated: ${new Date().toLocaleTimeString()}`;
+    }
+
+    window.onload = () => {
+        runScanner();
+    };
+</script>
+
 </body>
 </html>
